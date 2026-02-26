@@ -1,7 +1,6 @@
 import * as React from "react";
 import { cn } from "./utils";
 
-
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -28,13 +27,30 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+type CardTitleProps = React.ComponentProps<"h4">;
+
+function hasRenderableText(children: React.ReactNode): boolean {
+  return React.Children.toArray(children).some((c) => {
+    if (c === null || c === undefined) return false;
+    if (typeof c === "string") return c.trim().length > 0;
+    if (typeof c === "number" || typeof c === "bigint") return true;
+    // ReactElement, Portal, etc. cuentan como contenido
+    return true;
+  });
+}
+
+function CardTitle({ className, children, ...props }: CardTitleProps) {
+  // ✅ evita <h4> vacío -> corrige jsx-a11y/heading-has-content
+  if (!hasRenderableText(children)) return null;
+
   return (
     <h4
       data-slot="card-title"
       className={cn("leading-none", className)}
       {...props}
-    />
+    >
+      {children}
+    </h4>
   );
 }
 

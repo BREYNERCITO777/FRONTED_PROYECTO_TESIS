@@ -126,7 +126,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
   const unreadCount = useMemo(() => alerts.filter((a) => !a.read).length, [alerts]);
 
   // ✅ POLLING: cada 4s (ajusta a 5–8s si quieres menos carga)
-  useEffect(() => {
+   useEffect(() => {
     // si no hay sesión -> parar polling y limpiar
     if (!user || !token) {
       if (pollingRef.current) window.clearInterval(pollingRef.current);
@@ -147,7 +147,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
       if (pollingRef.current) window.clearInterval(pollingRef.current);
       pollingRef.current = null;
     };
-  }, [user?._id, token, refresh]);
+  }, [user, token, refresh]); // ✅ antes: [user?._id, token, refresh]
 
   return (
     <AlertsContext.Provider

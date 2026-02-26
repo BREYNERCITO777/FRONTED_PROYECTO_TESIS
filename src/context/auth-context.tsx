@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { http } from "../api/http"; // ✅ FIX: import correcto
 
 export type Role = "admin" | "operator";
@@ -59,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [loading, setLoading] = useState(true);
 
-  const persistAuth = (t: string, u: User, mods: string[]) => {
+  const persistAuth = useCallback((t: string, u: User, mods: string[]) => {
     localStorage.setItem("token", t);
     localStorage.setItem("user", JSON.stringify(u));
     localStorage.setItem("allowed_modules", JSON.stringify(mods));
@@ -67,18 +74,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(t);
     setUser(u);
     setAllowedModules(mods);
-  };
+  }, []);
 
-  const clearAuth = () => {
+  const clearAuth = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("allowed_modules");
     setToken(null);
     setUser(null);
     setAllowedModules([]);
-  };
+  }, []);
 
-  const refreshMe = async () => {
+  const refreshMe = useCallback(async () => {
     const t = localStorage.getItem("token");
     if (!t) {
       clearAuth();
@@ -97,24 +104,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // ✅ sincroniza token state con localStorage
     setToken(t);
-  };
+  }, [clearAuth]);
 
-  const login = async (email: string, password: string) => {
-    const form = new URLSearchParams();
-    form.append("username", email.trim());
-    form.append("password", password);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const form = new URLSearchParams();
+      form.append("username", email.trim());
+      form.append("password", password);
 
-    const { data } = await http.post<LoginResponse>("/auth/login", form, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+      const { data } = await http.post<LoginResponse>("/auth/login", form, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
 
-    const mods = data.allowed_modules ?? [];
-    persistAuth(data.access_token, data.user, mods);
-  };
+      const mods = data.allowed_modules ?? [];
+      persistAuth(data.access_token, data.user, mods);
+    },
+    [persistAuth]
+  );
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearAuth();
-  };
+  }, [clearAuth]);
 
   useEffect(() => {
     (async () => {
@@ -128,8 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshMe, clearAuth]);
 
   const value = useMemo(
     () => ({
@@ -142,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       refreshMe,
     }),
-    [user, token, allowedModules, loading]
+    [user, token, allowedModules, loading, login, logout, refreshMe]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

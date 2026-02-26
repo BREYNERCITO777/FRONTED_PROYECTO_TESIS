@@ -10,7 +10,6 @@ import {
   Search,
   MoreHorizontal,
   X,
-  FileText,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
