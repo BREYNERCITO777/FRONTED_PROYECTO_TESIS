@@ -1,165 +1,120 @@
-// frontend/src/app/providers/alerts-context.tsx
 import React, {
   createContext,
   useContext,
   useEffect,
   useMemo,
   useState,
-  useCallback,
-  useRef,
 } from "react";
-import { http } from "../../api/http";
-import { useAuth } from "../../context/auth-context";
 
-type Severity = "critical" | "high" | "medium" | "low";
+import {
+  AlertUI,
+  listAlerts,
+  markAlertRead,
+  normalizeAlert,
+} from "../../api/alerts";
 
-export interface AlertApi {
-  _id: string;
-  type?: string;
-  title: string;
-  message: string;
-  severity: Severity;
-  weapon_type?: string | null;
-  confidence?: number | null;
-  evidence_url?: string | null;
-  camera_id?: string | null;
-  timestamp?: string | null;
-  read?: boolean;
-}
+import { connectAlertWebSocket } from "../../websocket/alerts";
+
+type WsStatus = "connected" | "disconnected" | "error";
 
 type AlertsContextValue = {
-  alerts: AlertApi[];
+  alerts: AlertUI[];
   unreadCount: number;
-  refresh: () => Promise<void>;
-  markAsRead: (id: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
-  deleteAlert: (id: string) => Promise<void>; // solo admin (backend valida)
+  wsStatus: WsStatus;
+  loading: boolean;
+  refreshAlerts: () => Promise<void>;
+  markAsRead: (alertId: string) => Promise<void>;
 };
 
-const AlertsContext = createContext<AlertsContextValue | null>(null);
-
-function normalizeSeverity(s: any): Severity {
-  const v = String(s ?? "medium").toLowerCase();
-  if (v === "critical") return "critical";
-  if (v === "high") return "high";
-  if (v === "medium") return "medium";
-  return "low";
-}
-
-function normalizeConfidence(c: any): number | null {
-  if (c == null) return null;
-  const n = Number(c);
-  if (!Number.isFinite(n)) return null;
-  const v = n > 1 ? n / 100 : n; // por si viniera 0-100
-  return Math.max(0, Math.min(1, v));
-}
-
-function normalizeAlert(a: any): AlertApi {
-  return {
-    _id: String(a._id ?? a.id ?? ""),
-    type: a.type ?? "ALERTA",
-    title: a.title ?? "Detección",
-    message: a.message ?? "",
-    severity: normalizeSeverity(a.severity),
-    weapon_type: a.weapon_type ?? null,
-    confidence: normalizeConfidence(a.confidence),
-    evidence_url: a.evidence_url ?? null,
-    camera_id: a.camera_id ?? null,
-    timestamp: a.timestamp ?? a.created_at ?? null,
-    read: !!a.read,
-  };
-}
+const AlertsContext = createContext<AlertsContextValue | undefined>(undefined);
 
 export function AlertsProvider({ children }: { children: React.ReactNode }) {
-  const { user, token } = useAuth();
-  const [alerts, setAlerts] = useState<AlertApi[]>([]);
-  const pollingRef = useRef<number | null>(null);
+  const [alerts, setAlerts] = useState<AlertUI[]>([]);
+  const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
+  const [loading, setLoading] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const { data } = await http.get(`/alerts?limit=200`);
-    const arr = (Array.isArray(data) ? data : []).map(normalizeAlert);
+  async function refreshAlerts() {
+    try {
+      setLoading(true);
+      const data = await listAlerts(200);
+      setAlerts(data);
+    } catch (error) {
+      console.error("Error cargando alertas:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    // orden desc por timestamp ISO
-    arr.sort((a: AlertApi, b: AlertApi) =>
-      String(b.timestamp ?? "").localeCompare(String(a.timestamp ?? ""))
+  async function markAsRead(alertId: string) {
+    try {
+      const updated = await markAlertRead(alertId, true);
+
+      setAlerts((prev) =>
+        prev.map((alert) => (alert._id === alertId ? updated : alert))
+      );
+    } catch (error) {
+      console.error("Error marcando alerta como leída:", error);
+    }
+  }
+
+  useEffect(() => {
+    refreshAlerts();
+
+    const ws = connectAlertWebSocket(
+      (newAlertRaw) => {
+        const newAlert = normalizeAlert(newAlertRaw);
+
+        setAlerts((prev) => {
+          const exists = prev.some((item) => item._id === newAlert._id);
+
+          if (exists) {
+            return prev;
+          }
+
+          return [newAlert, ...prev];
+        });
+      },
+      (status) => {
+        setWsStatus(status);
+      }
     );
 
-    setAlerts(arr);
-  }, []);
-
-  const markAsRead = useCallback(async (id: string) => {
-    // optimistic
-    setAlerts((prev) => prev.map((a) => (a._id === id ? { ...a, read: true } : a)));
-    try {
-      await http.patch(`/alerts/${id}/read?read=true`);
-    } catch (e) {
-      setAlerts((prev) => prev.map((a) => (a._id === id ? { ...a, read: false } : a)));
-      throw e;
-    }
-  }, []);
-
-  const markAllAsRead = useCallback(async () => {
-    const unread = alerts.filter((a) => !a.read);
-    if (unread.length === 0) return;
-
-    setAlerts((prev) => prev.map((a) => ({ ...a, read: true })));
-    try {
-      await Promise.all(unread.map((a) => http.patch(`/alerts/${a._id}/read?read=true`)));
-    } catch (e) {
-      await refresh();
-      throw e;
-    }
-  }, [alerts, refresh]);
-
-  const deleteAlert = useCallback(async (id: string) => {
-    // backend valida rol admin, pero aquí no dependemos de user.role para no romper
-    const prev = alerts;
-    setAlerts((p) => p.filter((a) => a._id !== id));
-    try {
-      await http.delete(`/alerts/${id}`);
-    } catch (e) {
-      setAlerts(prev);
-      throw e;
-    }
-  }, [alerts]);
-
-  const unreadCount = useMemo(() => alerts.filter((a) => !a.read).length, [alerts]);
-
-  // ✅ POLLING: cada 4s (ajusta a 5–8s si quieres menos carga)
-   useEffect(() => {
-    // si no hay sesión -> parar polling y limpiar
-    if (!user || !token) {
-      if (pollingRef.current) window.clearInterval(pollingRef.current);
-      pollingRef.current = null;
-      setAlerts([]);
-      return;
-    }
-
-    // carga inmediata
-    refresh().catch(console.error);
-
-    if (pollingRef.current) window.clearInterval(pollingRef.current);
-    pollingRef.current = window.setInterval(() => {
-      refresh().catch(() => {});
-    }, 4000);
+    const fallbackPolling = window.setInterval(() => {
+      refreshAlerts();
+    }, 60000);
 
     return () => {
-      if (pollingRef.current) window.clearInterval(pollingRef.current);
-      pollingRef.current = null;
+      window.clearInterval(fallbackPolling);
+      ws.close();
     };
-  }, [user, token, refresh]); // ✅ antes: [user?._id, token, refresh]
+  }, []);
+
+  const unreadCount = useMemo(() => {
+    return alerts.filter((alert) => !alert.read).length;
+  }, [alerts]);
+
+  const value: AlertsContextValue = {
+    alerts,
+    unreadCount,
+    wsStatus,
+    loading,
+    refreshAlerts,
+    markAsRead,
+  };
 
   return (
-    <AlertsContext.Provider
-      value={{ alerts, unreadCount, refresh, markAsRead, markAllAsRead, deleteAlert }}
-    >
+    <AlertsContext.Provider value={value}>
       {children}
     </AlertsContext.Provider>
   );
 }
 
 export function useAlerts() {
-  const ctx = useContext(AlertsContext);
-  if (!ctx) throw new Error("useAlerts debe usarse dentro de <AlertsProvider/>");
-  return ctx;
+  const context = useContext(AlertsContext);
+
+  if (!context) {
+    throw new Error("useAlerts debe usarse dentro de AlertsProvider");
+  }
+
+  return context;
 }
