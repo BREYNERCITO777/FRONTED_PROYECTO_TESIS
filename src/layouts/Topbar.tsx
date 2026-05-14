@@ -19,32 +19,39 @@ import { toast } from "sonner";
 
 function timeAgo(iso?: string | null) {
   if (!iso) return "—";
+
   const t = new Date(iso).getTime();
   const diff = Date.now() - t;
   const s = Math.max(0, Math.floor(diff / 1000));
+
   if (s < 60) return `Hace ${s}s`;
+
   const m = Math.floor(s / 60);
   if (m < 60) return `Hace ${m}m`;
+
   const h = Math.floor(m / 60);
   if (h < 24) return `Hace ${h}h`;
+
   const d = Math.floor(h / 24);
   return `Hace ${d}d`;
 }
 
 function initials(name?: string) {
   const n = (name || "").trim();
+
   if (!n) return "U";
+
   const parts = n.split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? "U";
   const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
+
   return (first + last).toUpperCase();
 }
 
 export function Topbar() {
-  const { alerts, unreadCount, markAsRead, refresh } = useAlerts();
+  const { alerts, unreadCount, markAsRead, refreshAlerts } = useAlerts();
   const { user, logout } = useAuth();
 
-  // Top 6 notificaciones más recientes
   const recent = alerts.slice(0, 6);
 
   const displayName =
@@ -70,11 +77,13 @@ export function Topbar() {
 
   const handleLogout = async () => {
     try {
-      await logout(); // ✅ debe borrar token + user
+      await logout();
       toast.success("Sesión cerrada");
     } catch (e: any) {
       console.error(e);
-      toast.error("No se pudo cerrar sesión", { description: String(e?.message ?? e) });
+      toast.error("No se pudo cerrar sesión", {
+        description: String(e?.message ?? e),
+      });
     }
   };
 
@@ -95,14 +104,13 @@ export function Topbar() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* NOTIFICACIONES */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="relative hover:bg-slate-100 transition-colors h-10 w-10 rounded-xl"
-                  onClick={() => refresh().catch(console.error)} // refresca al abrir
+                  onClick={() => refreshAlerts().catch(console.error)}
                 >
                   <Bell className="h-5 w-5 text-slate-600" />
 
@@ -124,7 +132,7 @@ export function Topbar() {
                     variant="ghost"
                     size="sm"
                     className="text-xs mr-2"
-                    onClick={() => refresh().catch(console.error)}
+                    onClick={() => refreshAlerts().catch(console.error)}
                   >
                     Refrescar
                   </Button>
@@ -161,11 +169,14 @@ export function Topbar() {
                         key={a._id}
                         className="flex flex-col items-start p-3 cursor-pointer"
                         onClick={() => {
-                          if (isUnread) markAsRead(a._id).catch(console.error);
+                          if (isUnread) {
+                            markAsRead(a._id).catch(console.error);
+                          }
                         }}
                       >
                         <div className="flex items-center gap-2 mb-1 w-full">
                           <div className={`h-2 w-2 rounded-full ${dotColor}`} />
+
                           <span className="font-semibold text-sm line-clamp-1">
                             {a.title || "Alerta"}
                           </span>
@@ -182,7 +193,7 @@ export function Topbar() {
                         </p>
 
                         <p className="text-xs text-slate-400 ml-4 mt-1">
-                          {timeAgo(a.timestamp)}
+                          {timeAgo(a.timestamp || a.created_at)}
                         </p>
                       </DropdownMenuItem>
                     );
@@ -200,7 +211,6 @@ export function Topbar() {
 
             <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
-            {/* USUARIO */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -208,7 +218,9 @@ export function Topbar() {
                   className="flex items-center gap-3 hover:bg-slate-100 transition-colors rounded-xl h-10 px-2 sm:px-3"
                 >
                   <div className="text-right hidden sm:block">
-                    <p className="text-sm font-semibold text-slate-900">{displayName}</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {displayName}
+                    </p>
                     <p className="text-xs text-slate-500">{role}</p>
                   </div>
 
@@ -227,8 +239,11 @@ export function Topbar() {
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-semibold">{displayName}</p>
+
                     {email ? (
-                      <p className="text-xs text-slate-500 font-normal">{email}</p>
+                      <p className="text-xs text-slate-500 font-normal">
+                        {email}
+                      </p>
                     ) : (
                       <p className="text-xs text-slate-400 font-normal">—</p>
                     )}
@@ -244,7 +259,10 @@ export function Topbar() {
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem className="cursor-pointer text-rose-600" onClick={handleLogout}>
+                <DropdownMenuItem
+                  className="cursor-pointer text-rose-600"
+                  onClick={handleLogout}
+                >
                   <LogOut className="h-4 w-4 mr-2" />
                   Cerrar sesión
                 </DropdownMenuItem>
