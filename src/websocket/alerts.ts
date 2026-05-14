@@ -1,18 +1,12 @@
-const API_BASE =
-  (import.meta as any).env?.VITE_API_URL ||
-  (import.meta as any).env?.REACT_APP_API_BASE ||
-  "https://backend-proyecto-tesis-1nv4.onrender.com/api/v1";
-
-const WS_BASE = API_BASE
-  .replace(/^https:/, "wss:")
-  .replace(/^http:/, "ws:")
-  .replace(/\/api\/v1\/?$/, "/api/v1");
+const WS_URL =
+  process.env.REACT_APP_WS_BASE ||
+  "wss://backend-proyecto-tesis-1nv4.onrender.com/api/v1/ws/alerts";
 
 export function connectAlertWebSocket(
   onAlert: (alert: any) => void,
   onStatusChange?: (status: "connected" | "disconnected" | "error") => void
 ): WebSocket {
-  const ws = new WebSocket(`${WS_BASE}/ws/alerts`);
+  const ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
     console.log("WebSocket alerts conectado");
