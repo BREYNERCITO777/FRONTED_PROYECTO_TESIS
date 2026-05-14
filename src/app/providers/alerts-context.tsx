@@ -112,7 +112,9 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
 
         setAlerts((prev) => {
           const exists = prev.some((item) => item._id === newAlert._id);
+
           if (exists) return prev;
+
           return [newAlert, ...prev];
         });
       },
