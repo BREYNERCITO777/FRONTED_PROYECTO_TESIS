@@ -1,84 +1,127 @@
-// frontend/src/api/alerts.ts
-import { http } from "./http";
+const API_BASE =
+  (import.meta as any).env?.VITE_API_URL ||
+  (import.meta as any).env?.REACT_APP_API_BASE ||
+  "https://backend-proyecto-tesis-1nv4.onrender.com/api/v1";
+
+function getToken(): string | null {
+  return (
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken") ||
+    sessionStorage.getItem("access_token") ||
+    sessionStorage.getItem("token") ||
+    null
+  );
+}
 
 export type AlertOut = {
-  _id?: string;
-  id?: string;
-
-  title?: string;
-  message?: string;
-
-  camera_id?: string | number;
-  weapon_type?: string;
-
-  confidence?: number; // 0..1 (tu backend lo manda float)
-  severity?: string; // critical | high | medium | low
-  read?: boolean;
-
-  created_at?: string;
-  timestamp?: string;
-  evidence_url?: string;
-};
-
-export type AlertUI = {
   _id: string;
-  title: string;
-  message: string;
-  camera_id?: string;
-  weapon_type?: string;
-  confidence?: number; // 0..1
-  severity: "critical" | "high" | "medium" | "low";
-  read: boolean;
-  timestamp?: string;
-  evidence_url?: string;
+  type?: string | null;
+  title?: string | null;
+  message?: string | null;
+  severity?: string | null;
+  weapon_type?: string | null;
+  confidence?: number | null;
+  evidence_url?: string | null;
+  image_base64?: string | null;
+  evidence_type?: string | null;
+  camera_id?: string | null;
+  camera_name?: string | null;
+  incident_id?: string | null;
+  source?: string | null;
+  timestamp?: string | null;
+  created_at?: string | null;
+  read?: boolean;
 };
 
-function normalizeSeverity(s?: string): AlertUI["severity"] {
-  const v = String(s ?? "").toLowerCase();
-  if (v === "critical") return "critical";
-  if (v === "high") return "high";
-  if (v === "medium") return "medium";
-  return "low";
+export type AlertUI = AlertOut & {
+  id: string;
+  label: string;
+  cameraLabel: string;
+  evidenceImage?: string | null;
+};
+
+export function getEvidenceImage(alert?: AlertOut | null): string | null {
+  if (!alert) return null;
+
+  if (alert.image_base64) {
+    return `data:image/jpeg;base64,${alert.image_base64}`;
+  }
+
+  if (alert.evidence_url) {
+    const apiOrigin = API_BASE.replace(/\/api\/v1\/?$/, "");
+    return `${apiOrigin}${alert.evidence_url.startsWith("/") ? alert.evidence_url : `/${alert.evidence_url}`}`;
+  }
+
+  return null;
 }
 
-function normalizeConfidence(c?: number): number | undefined {
-  if (c == null) return undefined;
-  const n = Number(c);
-  if (!Number.isFinite(n)) return undefined;
-  // por si alguna vez viniera 0-100
-  const val = n > 1 ? n / 100 : n;
-  return Math.max(0, Math.min(1, val));
-}
-
-export function normalizeAlert(raw: any): AlertUI {
-  const _id = String(raw._id ?? raw.id ?? "");
+export function normalizeAlert(alert: AlertOut): AlertUI {
   return {
-    _id,
-    title: String(raw.title ?? "Alerta"),
-    message: String(raw.message ?? ""),
-    camera_id: raw.camera_id != null ? String(raw.camera_id) : undefined,
-    weapon_type: raw.weapon_type != null ? String(raw.weapon_type) : undefined,
-    confidence: normalizeConfidence(raw.confidence),
-    severity: normalizeSeverity(raw.severity),
-    read: Boolean(raw.read),
-    timestamp: raw.timestamp ?? raw.created_at ?? undefined,
-    evidence_url: raw.evidence_url ?? undefined,
+    ...alert,
+    id: alert._id,
+    label: alert.weapon_type || alert.type || "ALERTA",
+    cameraLabel: alert.camera_name || alert.camera_id || "Cámara no especificada",
+    evidenceImage: getEvidenceImage(alert),
   };
 }
 
-export async function listAlerts(limit = 50): Promise<AlertUI[]> {
-  const { data } = await http.get<AlertOut[]>(`/alerts?limit=${limit}`);
-  const arr = Array.isArray(data) ? data : [];
-  return arr.map(normalizeAlert);
+export async function listAlerts(limit = 200): Promise<AlertUI[]> {
+  const token = getToken();
+
+  const response = await fetch(`${API_BASE}/alerts?limit=${limit}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error listando alertas: ${response.status}`);
+  }
+
+  const data: AlertOut[] = await response.json();
+
+  return data.map(normalizeAlert);
 }
 
-export async function markAlertRead(alertId: string, read = true): Promise<AlertUI> {
-  // tu backend: PATCH /alerts/{id}/read?read=true
-  const { data } = await http.patch<AlertOut>(`/alerts/${alertId}/read?read=${read}`);
+export async function getAlert(alertId: string): Promise<AlertUI> {
+  const token = getToken();
+
+  const response = await fetch(`${API_BASE}/alerts/${alertId}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error obteniendo alerta: ${response.status}`);
+  }
+
+  const data: AlertOut = await response.json();
+
   return normalizeAlert(data);
 }
 
-export async function deleteAlert(alertId: string): Promise<{ deleted: boolean; alert_id: string }> {
-  const { data } = await http.delete(`/alerts/${alertId}`);
-  return data;
+export async function markAlertRead(alertId: string, read = true): Promise<AlertUI> {
+  const token = getToken();
+
+  const response = await fetch(`${API_BASE}/alerts/${alertId}/read?read=${read}`, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error marcando alerta: ${response.status}`);
+  }
+
+  const data: AlertOut = await response.json();
+
+  return normalizeAlert(data);
 }
