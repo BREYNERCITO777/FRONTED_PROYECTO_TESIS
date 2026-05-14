@@ -25,7 +25,6 @@ type AlertsContextValue = {
   wsStatus: WsStatus;
   loading: boolean;
 
-  // Compatibilidad con componentes existentes
   refresh: () => Promise<void>;
   refreshAlerts: () => Promise<void>;
 
@@ -61,15 +60,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
 
     try {
       setLoading(true);
-
       const data = await listAlerts(200);
-
-      data.sort((a, b) =>
-        String(b.timestamp ?? b.created_at ?? "").localeCompare(
-          String(a.timestamp ?? a.created_at ?? "")
-        )
-      );
-
       setAlerts(data);
     } catch (error) {
       console.error("Error cargando alertas:", error);
@@ -121,9 +112,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
 
         setAlerts((prev) => {
           const exists = prev.some((item) => item._id === newAlert._id);
-
           if (exists) return prev;
-
           return [newAlert, ...prev];
         });
       },
@@ -166,11 +155,8 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
         unreadCount,
         wsStatus,
         loading,
-
-        // Los dos nombres apuntan a la misma función
         refresh,
         refreshAlerts: refresh,
-
         markAsRead,
         markAllAsRead,
       }}
