@@ -40,15 +40,20 @@ export type AlertUI = AlertOut & {
   evidenceImage?: string | null;
 };
 
-export function getEvidenceImage(alert?: AlertOut | null): string | null {
+export function getEvidenceImage(
+  alert?: AlertOut | null
+): string | null {
   if (!alert) return null;
 
+  // Imagen enviada desde MongoDB en base64
   if (alert.image_base64) {
     return `data:image/jpeg;base64,${alert.image_base64}`;
   }
 
+  // Imagen servida desde backend
   if (alert.evidence_url) {
     const apiOrigin = API_BASE.replace(/\/api\/v1\/?$/, "");
+
     const path = alert.evidence_url.startsWith("/")
       ? alert.evidence_url
       : `/${alert.evidence_url}`;
@@ -65,24 +70,35 @@ export function normalizeAlert(alert: AlertOut): AlertUI {
     id: alert._id,
     label: alert.weapon_type || alert.type || "ALERTA",
     cameraLabel:
-      alert.camera_name || alert.camera_id || "Cámara no especificada",
+      alert.camera_name ||
+      alert.camera_id ||
+      "Cámara no especificada",
     evidenceImage: getEvidenceImage(alert),
   };
 }
 
-export async function listAlerts(limit = 200): Promise<AlertUI[]> {
+export async function listAlerts(
+  limit = 200
+): Promise<AlertUI[]> {
   const token = getToken();
 
-  const response = await fetch(`${API_BASE}/alerts?limit=${limit}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const response = await fetch(
+    `${API_BASE}/alerts?limit=${limit}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...(token
+          ? { Authorization: `Bearer ${token}` }
+          : {}),
+      },
+    }
+  );
 
   if (!response.ok) {
-    throw new Error(`Error listando alertas: ${response.status}`);
+    throw new Error(
+      `Error listando alertas: ${response.status}`
+    );
   }
 
   const data: AlertOut[] = await response.json();
@@ -90,45 +106,28 @@ export async function listAlerts(limit = 200): Promise<AlertUI[]> {
   return data.map(normalizeAlert);
 }
 
-export async function deleteAlert(
+export async function getAlert(
   alertId: string
-): Promise<{ deleted: boolean; alert_id: string }> {
-  const token =
-    localStorage.getItem("access_token") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken") ||
-    sessionStorage.getItem("access_token") ||
-    sessionStorage.getItem("token") ||
-    null;
-
-  const response = await fetch(`${API_BASE}/alerts/${alertId}`, {
-    method: "DELETE",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Error eliminando alerta: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-export async function getAlert(alertId: string): Promise<AlertUI> {
+): Promise<AlertUI> {
   const token = getToken();
 
-  const response = await fetch(`${API_BASE}/alerts/${alertId}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const response = await fetch(
+    `${API_BASE}/alerts/${alertId}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...(token
+          ? { Authorization: `Bearer ${token}` }
+          : {}),
+      },
+    }
+  );
 
   if (!response.ok) {
-    throw new Error(`Error obteniendo alerta: ${response.status}`);
+    throw new Error(
+      `Error obteniendo alerta: ${response.status}`
+    );
   }
 
   const data: AlertOut = await response.json();
@@ -148,16 +147,50 @@ export async function markAlertRead(
       method: "PATCH",
       headers: {
         Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token
+          ? { Authorization: `Bearer ${token}` }
+          : {}),
       },
     }
   );
 
   if (!response.ok) {
-    throw new Error(`Error marcando alerta: ${response.status}`);
+    throw new Error(
+      `Error marcando alerta: ${response.status}`
+    );
   }
 
   const data: AlertOut = await response.json();
 
   return normalizeAlert(data);
+}
+
+export async function deleteAlert(
+  alertId: string
+): Promise<{
+  deleted: boolean;
+  alert_id: string;
+}> {
+  const token = getToken();
+
+  const response = await fetch(
+    `${API_BASE}/alerts/${alertId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+        ...(token
+          ? { Authorization: `Bearer ${token}` }
+          : {}),
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Error eliminando alerta: ${response.status}`
+    );
+  }
+
+  return response.json();
 }
