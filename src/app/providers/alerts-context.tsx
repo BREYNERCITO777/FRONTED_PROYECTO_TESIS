@@ -101,18 +101,21 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [alerts, refresh]);
 
-  const deleteAlert = useCallback(async (id: string) => {
-    const previousAlerts = alerts;
+  const deleteAlert = useCallback(
+    async (id: string) => {
+      const previousAlerts = alerts;
 
-    setAlerts((prev) => prev.filter((a) => a._id !== id));
+      setAlerts((prev) => prev.filter((a) => a._id !== id));
 
-    try {
-      await deleteAlertApi(id);
-    } catch (error) {
-      setAlerts(previousAlerts);
-      throw error;
-    }
-  }, [alerts]);
+      try {
+        await deleteAlertApi(id);
+      } catch (error) {
+        setAlerts(previousAlerts);
+        throw error;
+      }
+    },
+    [alerts]
+  );
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -127,9 +130,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
 
         setAlerts((prev) => {
           const exists = prev.some((item) => item._id === newAlert._id);
-
           if (exists) return prev;
-
           return [newAlert, ...prev];
         });
       },
