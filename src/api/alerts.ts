@@ -90,6 +90,32 @@ export async function listAlerts(limit = 200): Promise<AlertUI[]> {
   return data.map(normalizeAlert);
 }
 
+export async function deleteAlert(
+  alertId: string
+): Promise<{ deleted: boolean; alert_id: string }> {
+  const token =
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken") ||
+    sessionStorage.getItem("access_token") ||
+    sessionStorage.getItem("token") ||
+    null;
+
+  const response = await fetch(`${API_BASE}/alerts/${alertId}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error eliminando alerta: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function getAlert(alertId: string): Promise<AlertUI> {
   const token = getToken();
 
