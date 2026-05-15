@@ -13,6 +13,7 @@ import {
   listAlerts,
   markAlertRead,
   normalizeAlert,
+  deleteAlert as deleteAlertApi,
 } from "../../api/alerts";
 
 import { connectAlertWebSocket } from "../../websocket/alerts";
@@ -30,6 +31,7 @@ type AlertsContextValue = {
 
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  deleteAlert: (id: string) => Promise<void>;
 };
 
 const AlertsContext = createContext<AlertsContextValue | null>(null);
@@ -99,6 +101,19 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [alerts, refresh]);
 
+  const deleteAlert = useCallback(async (id: string) => {
+    const previousAlerts = alerts;
+
+    setAlerts((prev) => prev.filter((a) => a._id !== id));
+
+    try {
+      await deleteAlertApi(id);
+    } catch (error) {
+      setAlerts(previousAlerts);
+      throw error;
+    }
+  }, [alerts]);
+
   useEffect(() => {
     refresh().catch(console.error);
 
@@ -161,6 +176,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
         refreshAlerts: refresh,
         markAsRead,
         markAllAsRead,
+        deleteAlert,
       }}
     >
       {children}
