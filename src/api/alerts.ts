@@ -1,6 +1,5 @@
 const API_BASE =
-  (import.meta as any).env?.VITE_API_URL ||
-  (import.meta as any).env?.REACT_APP_API_BASE ||
+  process.env.REACT_APP_API_BASE ||
   "https://backend-proyecto-tesis-1nv4.onrender.com/api/v1";
 
 function getToken(): string | null {
@@ -50,7 +49,11 @@ export function getEvidenceImage(alert?: AlertOut | null): string | null {
 
   if (alert.evidence_url) {
     const apiOrigin = API_BASE.replace(/\/api\/v1\/?$/, "");
-    return `${apiOrigin}${alert.evidence_url.startsWith("/") ? alert.evidence_url : `/${alert.evidence_url}`}`;
+    const path = alert.evidence_url.startsWith("/")
+      ? alert.evidence_url
+      : `/${alert.evidence_url}`;
+
+    return `${apiOrigin}${path}`;
   }
 
   return null;
@@ -61,7 +64,8 @@ export function normalizeAlert(alert: AlertOut): AlertUI {
     ...alert,
     id: alert._id,
     label: alert.weapon_type || alert.type || "ALERTA",
-    cameraLabel: alert.camera_name || alert.camera_id || "Cámara no especificada",
+    cameraLabel:
+      alert.camera_name || alert.camera_id || "Cámara no especificada",
     evidenceImage: getEvidenceImage(alert),
   };
 }
@@ -106,16 +110,22 @@ export async function getAlert(alertId: string): Promise<AlertUI> {
   return normalizeAlert(data);
 }
 
-export async function markAlertRead(alertId: string, read = true): Promise<AlertUI> {
+export async function markAlertRead(
+  alertId: string,
+  read = true
+): Promise<AlertUI> {
   const token = getToken();
 
-  const response = await fetch(`${API_BASE}/alerts/${alertId}/read?read=${read}`, {
-    method: "PATCH",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const response = await fetch(
+    `${API_BASE}/alerts/${alertId}/read?read=${read}`,
+    {
+      method: "PATCH",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  );
 
   if (!response.ok) {
     throw new Error(`Error marcando alerta: ${response.status}`);
