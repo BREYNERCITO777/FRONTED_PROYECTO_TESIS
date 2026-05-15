@@ -43,3 +43,14 @@ export function connectAlertWebSocket(
 
   return ws;
 }
+
+/**
+ * Alias para compatibilidad con componentes antiguos.
+ * Algunos módulos importan connectAlerts.
+ */
+export function connectAlerts(
+  onAlert: (alert: any) => void,
+  onStatusChange?: (status: "connected" | "disconnected" | "error") => void
+): WebSocket {
+  return connectAlertWebSocket(onAlert, onStatusChange);
+}
