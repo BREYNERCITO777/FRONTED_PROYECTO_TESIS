@@ -48,13 +48,21 @@ function isMongoObjectId(id: string) {
 }
 
 // ✅ saca id aunque venga raro (por si backend devuelve {_id: {$oid:"..."}} en algún caso viejo)
+//
+// ⚠️ Antes solo se miraba u._id. La API responde con "id" ademas de "_id", y
+// hubo una version en la que "_id" no salia en absoluto: esta funcion devolvia
+// cadena vacia para TODOS los usuarios, asi que editar, cambiar rol, activar y
+// eliminar apuntaban a /users/ sin identificador, y la comparacion contra el
+// usuario propio nunca coincidia (los botones de "no puedes eliminarte a ti
+// mismo" quedaban habilitados). Por eso ahora se prueban los dos campos.
 function getUserId(u: any): string {
-  const raw = u?._id;
-  if (typeof raw === "string") return raw;
-  if (raw && typeof raw === "object") {
-    // casos comunes
-    if (typeof raw.$oid === "string") return raw.$oid;
-    if (typeof raw.oid === "string") return raw.oid;
+  for (const raw of [u?._id, u?.id]) {
+    if (typeof raw === "string" && raw) return raw;
+    if (raw && typeof raw === "object") {
+      // casos comunes
+      if (typeof raw.$oid === "string") return raw.$oid;
+      if (typeof raw.oid === "string") return raw.oid;
+    }
   }
   return "";
 }
@@ -83,7 +91,10 @@ function toErrorMessage(err: any): string {
 export function Users() {
   const { user: me } = useAuth();
   const isAdmin = me?.role === "admin";
-  const myId = me?._id ?? "";
+  // Se resuelve con el mismo criterio que las filas de la tabla: si ambos lados
+  // no se normalizan igual, la comparacion falla y el usuario propio deja de
+  // estar protegido en la interfaz.
+  const myId = getUserId(me);
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<UserOut[]>([]);
