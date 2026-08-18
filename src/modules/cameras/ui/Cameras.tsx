@@ -119,6 +119,18 @@ export function Cameras() {
     [token, streamKey]
   );
 
+  /**
+   * Misma URL pero con el token oculto, para poder mostrarla en pantalla.
+   *
+   * El token de sesión viaja en la query porque una etiqueta <img> no admite
+   * cabeceras; imprimirlo tal cual dejaba una credencial válida a la vista en
+   * capturas de pantalla y al compartir pantalla.
+   */
+  const getStreamUrlVisible = useCallback(
+    (cameraId: string) => getStreamUrl(cameraId).replace(/token=[^&]+/, "token=•••oculto•••"),
+    [getStreamUrl]
+  );
+
   async function refresh() {
     try {
       const data = await listCameras();
@@ -541,21 +553,28 @@ export function Cameras() {
         <DialogContent
           className={
             isFullscreen
-              ? "p-0 w-[100vw] h-[100vh] max-w-none rounded-none bg-slate-950 border-slate-900"
-              : "sm:max-w-5xl bg-slate-950 border-slate-800"
+              ? "p-0 w-[100vw] h-[100vh] max-w-none rounded-none bg-white border-slate-200"
+              : "sm:max-w-5xl bg-white border-slate-200"
           }
         >
           <DialogHeader className={isFullscreen ? "px-4 pt-4" : ""}>
-            <div className="flex items-center justify-between gap-2">
-              <DialogTitle className="text-slate-100 uppercase text-xs tracking-widest">
-                En Vivo: {activeVideoCamera?.name ?? "—"}
-              </DialogTitle>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                {/* Punto rojo latiendo: señal universal de emisión en directo. */}
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-70" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                </span>
+                <DialogTitle className="truncate text-sm font-semibold text-slate-900">
+                  En vivo · {activeVideoCamera?.name ?? "—"}
+                </DialogTitle>
+              </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Acción principal: sólida, para que destaque sobre el resto. */}
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="border-slate-700 text-slate-100 hover:bg-slate-900"
+                  className="bg-sky-700 text-white hover:bg-sky-800 shadow-sm"
                   onClick={reloadStream}
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
@@ -565,8 +584,10 @@ export function Cameras() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-slate-700 text-slate-100 hover:bg-slate-900"
+                  className="border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                   onClick={() => setIsFullscreen((s) => !s)}
+                  title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+                  aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
                 >
                   {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </Button>
@@ -574,8 +595,10 @@ export function Cameras() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-slate-700 text-slate-100 hover:bg-slate-900"
+                  className="border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
                   onClick={closeVideo}
+                  title="Cerrar"
+                  aria-label="Cerrar"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -584,20 +607,21 @@ export function Cameras() {
           </DialogHeader>
 
           <div className={isFullscreen ? "px-4 pb-4" : ""}>
-            <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-slate-800">
+            {/* El área de vídeo se mantiene oscura a propósito: una imagen de
+                cámara se lee mejor sobre fondo neutro oscuro que sobre blanco. */}
+            <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
               {/* Overlay error */}
               {streamError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-10 p-6">
-                  <div className="max-w-lg text-center text-slate-100 space-y-3">
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/95 p-6">
+                  <div className="max-w-lg space-y-3 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-400" />
-                      <p className="font-bold">No se pudo cargar el stream</p>
+                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                      <p className="font-semibold text-slate-900">No se pudo cargar el vídeo</p>
                     </div>
-                    <p className="text-sm text-slate-300 break-words">{streamError}</p>
+                    <p className="text-sm text-slate-600 break-words">{streamError}</p>
                     <div className="flex items-center justify-center gap-2 pt-2">
                       <Button
-                        variant="outline"
-                        className="border-slate-700 text-slate-100 hover:bg-slate-900"
+                        className="bg-sky-700 text-white hover:bg-sky-800"
                         onClick={reloadStream}
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
@@ -605,7 +629,7 @@ export function Cameras() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="border-slate-700 text-slate-100 hover:bg-slate-900"
+                        className="border-slate-300 text-slate-700 hover:bg-slate-100"
                         onClick={closeVideo}
                       >
                         Cerrar
@@ -620,11 +644,11 @@ export function Cameras() {
                   key={streamKey} // fuerza reset
                   src={getStreamUrl(activeVideoCamera.id)}
                   alt="Live"
-                  className="w-full h-full object-contain bg-black"
+                  className="w-full h-full object-contain bg-slate-900"
                   onError={() => {
-                    const url = getStreamUrl(activeVideoCamera.id);
                     setStreamError(
-                      `Error cargando MJPEG. Revisa: token válido, cámara RUNNING, y que /inference/stream acepte ?token=. URL: ${url}`
+                      "Revisa que la cámara esté encendida, que su URL RTSP tenga las " +
+                        "credenciales correctas y que tu sesión no haya caducado."
                     );
                   }}
                 />
@@ -632,8 +656,14 @@ export function Cameras() {
             </div>
 
             {activeVideoCamera && (
-              <div className="mt-3 text-xs text-slate-300 break-all">
-                Stream URL: {getStreamUrl(activeVideoCamera.id)}
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="mt-px shrink-0 font-mono text-[10px] uppercase tracking-wider text-slate-400">
+                  Origen
+                </span>
+                {/* El token va oculto: ver getStreamUrlVisible(). */}
+                <code className="break-all font-mono text-[11px] leading-relaxed text-slate-600">
+                  {getStreamUrlVisible(activeVideoCamera.id)}
+                </code>
               </div>
             )}
           </div>

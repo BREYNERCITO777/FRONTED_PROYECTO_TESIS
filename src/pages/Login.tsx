@@ -8,7 +8,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [focused, setFocused] = useState<string | null>(null);
+  const [verPassword, setVerPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,15 +20,14 @@ export default function Login() {
       // Llama al AuthProvider (que hace POST /auth/login y guarda token/user/allowed_modules).
       await login(email.trim(), password);
 
-      toast.success("ACCESO CONCEDIDO: Sistema Sentinel en línea");
+      toast.success("Acceso concedido", {
+        description: "Sistema Sentinel en línea",
+      });
 
-      // ✅ Si estás usando React Router, lo ideal es navegar:
-      // navigate("/");
-      // Como no veo router aquí, hacemos fallback:
       window.location.reload();
     } catch (err: any) {
       console.error("Login Error:", err);
-      toast.error("FALLO DE ACCESO", {
+      toast.error("No se pudo iniciar sesión", {
         description: String(err?.message ?? err),
       });
     } finally {
@@ -39,364 +38,362 @@ export default function Login() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap');
+        /* Tipografías del sistema: sin descargas externas, para que la
+           pantalla se vea igual aunque la red bloquee fuentes remotas. */
+        .lg-root {
+          --tinta:    #16202B;
+          --suave:    #566676;
+          --tenue:    #8494A4;
+          --papel:    #EEF2F6;
+          --tarjeta:  #FFFFFF;
+          --borde:    #DCE3EA;
+          --campo:    #F7F9FB;
+          --acento:   #1B5FA8;
+          --acento-2: #E8F0F8;
+          --ok:       #1B7F5A;
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+          --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
 
-        .login-root {
           min-height: 100vh;
-          background: #020a14;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-family: 'Rajdhani', sans-serif;
-          overflow: hidden;
+          padding: 24px;
           position: relative;
+          overflow: hidden;
+          background: var(--papel);
+          font-family: var(--sans);
+          color: var(--tinta);
         }
 
-        .grid-bg {
+        /* Retícula muy tenue: da textura sin ensuciar el blanco. */
+        .lg-reticula {
           position: absolute;
           inset: 0;
           background-image:
-            linear-gradient(rgba(0,120,255,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,120,255,0.04) 1px, transparent 1px);
-          background-size: 40px 40px;
-          animation: gridPan 20s linear infinite;
+            linear-gradient(rgba(27, 95, 168, 0.045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(27, 95, 168, 0.045) 1px, transparent 1px);
+          background-size: 46px 46px;
+          pointer-events: none;
         }
 
-        @keyframes gridPan {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(40px); }
-        }
-
-        .glow-center {
+        /* Halo claro detrás de la tarjeta, para separarla del fondo. */
+        .lg-halo {
           position: absolute;
-          top: 50%;
-          left: 50%;
+          top: 50%; left: 50%;
+          width: 760px; height: 760px;
           transform: translate(-50%, -50%);
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(0,100,255,0.08) 0%, transparent 70%);
+          background: radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0) 68%);
           pointer-events: none;
         }
 
-        .scan-line {
-          position: absolute;
-          left: 0; right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, transparent, rgba(0,150,255,0.5), transparent);
-          animation: scan 4s ease-in-out infinite;
-          pointer-events: none;
-        }
-
-        @keyframes scan {
-          0% { top: 0; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 100%; opacity: 0; }
-        }
-
-        .card {
+        .lg-tarjeta {
           position: relative;
-          width: 420px;
-          background: rgba(4, 16, 30, 0.92);
-          border: 1px solid rgba(0, 120, 255, 0.25);
+          width: 100%;
+          max-width: 424px;
+          background: var(--tarjeta);
+          border: 1px solid var(--borde);
+          border-radius: 14px;
           box-shadow:
-            0 0 0 1px rgba(0,100,255,0.1),
-            0 0 40px rgba(0,80,255,0.12),
-            0 30px 60px rgba(0,0,0,0.6);
-          backdrop-filter: blur(12px);
-          animation: cardIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+            0 1px 2px rgba(22, 32, 43, 0.04),
+            0 12px 32px rgba(22, 32, 43, 0.07),
+            0 32px 64px rgba(22, 32, 43, 0.05);
+          padding: 40px 38px 32px;
+          animation: lgEntrada 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
-        @keyframes cardIn {
-          from { opacity: 0; transform: translateY(20px) scale(0.97); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .card::before {
+        /* Filete superior: el único trazo de color fuerte de la pantalla. */
+        .lg-tarjeta::before {
           content: '';
           position: absolute;
-          top: -1px; right: -1px;
-          width: 0; height: 0;
-          border-style: solid;
-          border-width: 0 22px 22px 0;
-          border-color: transparent rgba(0,120,255,0.7) transparent transparent;
+          top: -1px; left: 26px; right: 26px;
+          height: 3px;
+          border-radius: 0 0 3px 3px;
+          background: linear-gradient(90deg, var(--acento), #4B93D4);
         }
 
-        .card-inner {
-          padding: 44px 40px 40px;
+        @keyframes lgEntrada {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: none; }
         }
 
-        .header {
-          margin-bottom: 36px;
-          animation: fadeUp 0.5s ease 0.1s both;
-        }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .badge {
+        .lg-insignia {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 10px;
-          color: #0078ff;
-          background: rgba(0,120,255,0.08);
-          border: 1px solid rgba(0,120,255,0.2);
-          padding: 4px 10px;
-          letter-spacing: 2px;
-          margin-bottom: 16px;
+          gap: 7px;
+          font-family: var(--mono);
+          font-size: 10.5px;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          color: var(--ok);
+          background: #E9F4EF;
+          border: 1px solid #CDE7DC;
+          border-radius: 999px;
+          padding: 4px 11px 4px 9px;
+          margin-bottom: 18px;
         }
 
-        .badge-dot {
+        .lg-punto {
           width: 6px; height: 6px;
           border-radius: 50%;
-          background: #0078ff;
-          animation: blink 1.5s ease-in-out infinite;
+          background: var(--ok);
+          animation: lgLatido 2s ease-in-out infinite;
         }
 
-        @keyframes blink {
+        @keyframes lgLatido {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0.2; }
+          50%      { opacity: .25; }
         }
 
-        .title {
-          font-size: 28px;
-          font-weight: 700;
-          color: #e8f0fe;
-          letter-spacing: 1px;
-          line-height: 1;
-          margin-bottom: 6px;
+        .lg-titulo {
+          font-size: 27px;
+          font-weight: 680;
+          letter-spacing: -.02em;
+          line-height: 1.1;
+          margin: 0 0 5px;
         }
+        .lg-titulo span { color: var(--acento); }
 
-        .title span {
-          color: #0078ff;
-        }
-
-        .subtitle {
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 11px;
-          color: rgba(100, 150, 200, 0.6);
-          letter-spacing: 1px;
-        }
-
-        .divider {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(0,120,255,0.3), transparent);
-          margin-bottom: 32px;
-          animation: fadeUp 0.5s ease 0.2s both;
-        }
-
-        .form { display: flex; flex-direction: column; gap: 18px; }
-
-        .field {
-          animation: fadeUp 0.5s ease both;
-        }
-
-        .field-label {
-          display: block;
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 10px;
-          color: rgba(0,120,255,0.7);
-          letter-spacing: 2px;
-          margin-bottom: 8px;
-        }
-
-        .input-wrap {
-          position: relative;
-        }
-
-        .input-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: rgba(0,120,255,0.5);
+        .lg-sub {
+          margin: 0 0 28px;
           font-size: 14px;
-          pointer-events: none;
-          transition: color 0.2s;
+          color: var(--suave);
         }
 
-        .input-wrap.focused .input-icon {
-          color: #0078ff;
+        .lg-form { display: flex; flex-direction: column; gap: 17px; }
+
+        .lg-etiqueta {
+          display: block;
+          font-family: var(--mono);
+          font-size: 10px;
+          letter-spacing: .11em;
+          text-transform: uppercase;
+          color: var(--tenue);
+          margin-bottom: 7px;
         }
 
-        .field-input {
-          width: 100%;
-          background: rgba(0,30,60,0.6);
-          border: 1px solid rgba(0,80,180,0.25);
-          color: #c8deff;
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 13px;
-          padding: 12px 14px 12px 40px;
-          outline: none;
-          transition: all 0.25s;
-          letter-spacing: 0.5px;
-        }
+        .lg-caja { position: relative; display: flex; align-items: center; }
 
-        .field-input:focus {
-          border-color: rgba(0,120,255,0.6);
-          background: rgba(0,40,80,0.7);
-          box-shadow: 0 0 0 3px rgba(0,100,255,0.08);
-        }
-
-        .input-line {
+        .lg-icono {
           position: absolute;
-          bottom: 0; left: 0;
-          height: 2px;
-          width: 0;
-          background: linear-gradient(90deg, #0050ff, #00aaff);
-          transition: width 0.3s ease;
+          left: 13px;
+          display: flex;
+          color: var(--tenue);
+          pointer-events: none;
+          transition: color .18s;
         }
+        .lg-caja:focus-within .lg-icono { color: var(--acento); }
 
-        .input-wrap.focused .input-line {
+        .lg-input {
           width: 100%;
+          background: var(--campo);
+          border: 1px solid var(--borde);
+          border-radius: 9px;
+          color: var(--tinta);
+          font-family: var(--sans);
+          font-size: 14.5px;
+          padding: 11px 13px 11px 40px;
+          outline: none;
+          transition: border-color .18s, box-shadow .18s, background .18s;
         }
+        .lg-input::placeholder { color: #A9B6C3; }
+        .lg-input:focus {
+          background: var(--tarjeta);
+          border-color: var(--acento);
+          box-shadow: 0 0 0 3px var(--acento-2);
+        }
+        .lg-input.con-boton { padding-right: 42px; }
 
-        .btn {
-          position: relative;
-          width: 100%;
-          padding: 14px;
-          background: linear-gradient(135deg, #0045cc, #0070ff);
+        .lg-ojo {
+          position: absolute;
+          right: 6px;
+          background: none;
           border: none;
-          color: #fff;
-          font-family: 'Rajdhani', sans-serif;
-          font-size: 15px;
-          font-weight: 700;
-          letter-spacing: 3px;
+          padding: 7px;
+          border-radius: 7px;
+          color: var(--tenue);
           cursor: pointer;
-          overflow: hidden;
-          transition: all 0.25s;
-          clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 20px));
+          display: flex;
+          line-height: 0;
         }
+        .lg-ojo:hover { color: var(--acento); background: var(--acento-2); }
+        .lg-ojo:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
 
-        .btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
+        .lg-boton {
+          margin-top: 6px;
+          width: 100%;
+          padding: 12px;
+          border: none;
+          border-radius: 9px;
+          background: var(--acento);
+          color: #fff;
+          font-family: var(--sans);
+          font-size: 15px;
+          font-weight: 620;
+          letter-spacing: .01em;
+          cursor: pointer;
+          transition: background .18s, transform .06s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
         }
+        .lg-boton:hover:not(:disabled) { background: #17538F; }
+        .lg-boton:active:not(:disabled) { transform: translateY(1px); }
+        .lg-boton:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        .lg-boton:disabled { opacity: .6; cursor: not-allowed; }
 
-        .btn-loader {
-          display: inline-block;
-          width: 14px; height: 14px;
-          border: 2px solid rgba(255,255,255,0.3);
+        .lg-girador {
+          width: 15px; height: 15px;
+          border: 2px solid rgba(255,255,255,.35);
           border-top-color: #fff;
           border-radius: 50%;
-          animation: spin 0.7s linear infinite;
-          vertical-align: middle;
-          margin-right: 8px;
+          animation: lgGiro .7s linear infinite;
         }
+        @keyframes lgGiro { to { transform: rotate(360deg); } }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .footer {
-          margin-top: 28px;
+        .lg-pie {
+          margin-top: 26px;
+          padding-top: 16px;
+          border-top: 1px solid var(--borde);
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 12px;
+          font-family: var(--mono);
+          font-size: 10px;
+          letter-spacing: .06em;
+          color: var(--tenue);
+        }
+        .lg-pie .lg-cifrado {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: var(--ok);
         }
 
-        .footer-text {
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 10px;
-          color: rgba(60,100,160,0.6);
-          letter-spacing: 1px;
+        @media (prefers-reduced-motion: reduce) {
+          .lg-tarjeta, .lg-punto, .lg-girador { animation: none; }
+        }
+
+        @media (max-width: 460px) {
+          .lg-tarjeta { padding: 32px 24px 26px; }
+          .lg-titulo { font-size: 24px; }
         }
       `}</style>
 
-      <div className="login-root">
-        <div className="grid-bg" />
-        <div className="glow-center" />
-        <div className="scan-line" />
+      <div className="lg-root">
+        <div className="lg-reticula" />
+        <div className="lg-halo" />
 
-        <div className="card">
-          <div className="card-inner">
-            <div className="header">
-              <div className="badge">
-                <div className="badge-dot" /> SISTEMA ACTIVO
+        <div className="lg-tarjeta">
+          <span className="lg-insignia">
+            <span className="lg-punto" /> Sistema activo
+          </span>
+
+          <h1 className="lg-titulo">
+            Sentinel <span>AI</span>
+          </h1>
+          <p className="lg-sub">
+            Sistema de detección inteligente de armas
+          </p>
+
+          <form className="lg-form" onSubmit={handleSubmit}>
+            <div>
+              <label className="lg-etiqueta" htmlFor="lg-email">
+                Correo institucional
+              </label>
+              <div className="lg-caja">
+                <span className="lg-icono" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m2 7 10 6 10-6" />
+                  </svg>
+                </span>
+                <input
+                  id="lg-email"
+                  className="lg-input"
+                  type="email"
+                  placeholder="usuario@dominio.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  autoFocus
+                />
               </div>
-              <h1 className="title">
-                SENTINEL <span>AI</span>
-              </h1>
-              <p className="subtitle">CONTROL DE ACCESO SEGURO v2.4.1</p>
             </div>
 
-            <div className="divider" />
-
-            <form className="form" onSubmit={handleSubmit}>
-              <div className="field">
-                <label className="field-label">IDENTIFICADOR (EMAIL)</label>
-                <div
-                  className={`input-wrap ${focused === "email" ? "focused" : ""}`}
+            <div>
+              <label className="lg-etiqueta" htmlFor="lg-pass">
+                Contraseña
+              </label>
+              <div className="lg-caja">
+                <span className="lg-icono" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <rect x="3" y="11" width="18" height="10" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </span>
+                <input
+                  id="lg-pass"
+                  className="lg-input con-boton"
+                  type={verPassword ? "text" : "password"}
+                  placeholder="Tu contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="lg-ojo"
+                  onClick={() => setVerPassword((v) => !v)}
+                  aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  title={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
-                  <span className="input-icon">✉</span>
-                  <input
-                    className="field-input"
-                    type="email"
-                    placeholder="usuario@dominio.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onFocus={() => setFocused("email")}
-                    onBlur={() => setFocused(null)}
-                    required
-                    autoComplete="email"
-                  />
-                  <div className="input-line" />
-                </div>
-              </div>
-
-              <div className="field">
-                <label className="field-label">CLAVE DE ACCESO</label>
-                <div
-                  className={`input-wrap ${
-                    focused === "password" ? "focused" : ""
-                  }`}
-                >
-                  <span className="input-icon">🔒</span>
-                  <input
-                    className="field-input"
-                    type="password"
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onFocus={() => setFocused("password")}
-                    onBlur={() => setFocused(null)}
-                    required
-                    autoComplete="current-password"
-                  />
-                  <div className="input-line" />
-                </div>
-              </div>
-
-              <div className="field" style={{ marginTop: "10px" }}>
-                <button className="btn" type="submit" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <span className="btn-loader" /> VERIFICANDO...
-                    </>
+                  {verPassword ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 10 8 10 8a18 18 0 0 1-2.16 3.19M6.6 6.6A18 18 0 0 0 2 12s3 8 10 8a9 9 0 0 0 5.4-1.6" />
+                      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                      <path d="m2 2 20 20" />
+                    </svg>
                   ) : (
-                    "INICIAR SESIÓN"
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                   )}
                 </button>
               </div>
-            </form>
-
-            <div className="footer">
-              <span className="footer-text">© 2026 SENTINEL SECURITY</span>
-              <span
-                style={{
-                  color: "rgba(0,200,120,0.7)",
-                  fontSize: "10px",
-                  fontFamily: "Share Tech Mono",
-                }}
-              >
-                CIFRADO TLS 2.0
-              </span>
             </div>
+
+            <button className="lg-boton" type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <span className="lg-girador" /> Verificando…
+                </>
+              ) : (
+                "Iniciar sesión"
+              )}
+            </button>
+          </form>
+
+          <div className="lg-pie">
+            <span>© 2026 Sentinel Security</span>
+            <span className="lg-cifrado">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <rect x="3" y="11" width="18" height="10" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Conexión cifrada
+            </span>
           </div>
         </div>
       </div>
