@@ -1,9 +1,13 @@
 import React, { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
 import { useAuth } from "../context/auth-context";
 import { toast } from "sonner";
 
 export default function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +28,11 @@ export default function Login() {
         description: "Sistema Sentinel en línea",
       });
 
-      window.location.reload();
+      // Antes se recargaba la página entera, que volvía a descargar toda la
+      // aplicación. Ahora se navega: si el usuario llegó desde una sección
+      // concreta, se le devuelve ahí; si no, al panel.
+      const desde = (location.state as { desde?: string } | null)?.desde;
+      navigate(desde && desde !== "/login" ? desde : "/dashboard", { replace: true });
     } catch (err: any) {
       console.error("Login Error:", err);
       toast.error("No se pudo iniciar sesión", {
