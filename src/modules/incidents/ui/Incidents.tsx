@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  ImageOff,
 } from "lucide-react";
 
 import { listIncidents, deleteIncident } from "../../../api/incidents";
@@ -55,15 +56,29 @@ function normalizeIncident(raw: any): Incident {
 
   const created = raw.created_at ?? raw.timestamp ?? raw.createdAt ?? null;
   const dt = created ? new Date(created) : new Date();
+  const valida = Number.isFinite(dt.getTime());
 
-  const date = Number.isFinite(dt.getTime()) ? dt.toLocaleDateString() : "";
-  const time = Number.isFinite(dt.getTime()) ? dt.toLocaleTimeString() : "";
-  const timestamp = created ? String(created) : `${date} ${time}`;
+  const date = valida
+    ? dt.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" })
+    : "";
+  const time = valida
+    ? dt.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "";
 
-  // Evidencia / imagen
+  // Antes se guardaba la marca ISO en crudo y se pintaba tal cual en la ficha
+  // del incidente (2026-08-18T03:10:25.848668+00:00). Ahora se compone una
+  // fecha legible y en la zona horaria local, coherente con la del listado.
+  const timestamp = valida ? `${date}, ${time}` : String(created ?? "—");
+
+  // Evidencia / imagen.
+  // Las detecciones del agente NO traen URL: la captura viaja en base64 dentro
+  // del propio incidente, y al no contemplarlo la imagen salia rota.
   const img = raw.image_url ?? raw.snapshot_url ?? raw.evidence_url ?? "";
-  const image_url =
-    typeof img === "string" && img.startsWith("/") ? `${PUBLIC_BASE}${img}` : String(img || "");
+  const image_url = raw.image_base64
+    ? `data:image/jpeg;base64,${raw.image_base64}`
+    : typeof img === "string" && img.startsWith("/")
+    ? `${PUBLIC_BASE}${img}`
+    : String(img || "");
 
   // Severidad
   const sev =
@@ -88,6 +103,20 @@ function normalizeIncident(raw: any): Incident {
     image_url,
     severity: sev,
   };
+}
+
+/**
+ * Descarga la captura del incidente con un nombre de archivo con sentido:
+ * evidencia_arma_fuego_6a83cd21.jpg en vez de "descarga.jpg".
+ */
+function descargarEvidencia(inc: { id: string; weapon_type: string; image_url: string }) {
+  if (!inc.image_url) return;
+  const a = document.createElement("a");
+  a.href = inc.image_url;
+  a.download = `evidencia_${inc.weapon_type}_${inc.id.slice(-8)}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 export const Incidents = () => {
@@ -341,12 +370,25 @@ export const Incidents = () => {
             </thead>
 
             <tbody className="divide-y divide-border">
-              {pageData.map((incident) => (
+              {pageData.map((incident, i) => (
                 <tr key={incident.id} className="hover:bg-muted/30 transition-colors group">
                   <td className="px-6 py-4">
-                    <span className="font-mono font-bold text-foreground text-sm">{incident.id}</span>
-                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                      <Calendar size={10} /> {incident.date} · {incident.time}
+                    {/* Antes se mostraba el ObjectId completo de Mongo, 24
+                        caracteres ilegibles. Ahora manda la fecha, y el
+                        identificador queda reducido a un codigo corto que
+                        basta para referirse al incidente. El completo esta en
+                        la ficha de detalle. */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {String((page - 1) * pageSize + i + 1).padStart(3, "0")}
+                      </span>
+                      <span className="text-sm font-bold text-foreground">
+                        {incident.date}
+                      </span>
+                    </div>
+                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Calendar size={10} /> {incident.time}
+                      <span className="ml-1 font-mono">#{incident.id.slice(-6)}</span>
                     </p>
                   </td>
 
@@ -378,8 +420,10 @@ export const Incidents = () => {
                   </td>
 
                   <td className="px-6 py-4">
-                    <span className="text-xs font-bold text-foreground block">{incident.camera_name}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase">{incident.camera_id}</span>
+                    {/* Se muestra solo el nombre. El identificador de Mongo
+                        debajo era ruido de 24 caracteres que no dice nada al
+                        operador; sigue disponible en la ficha del incidente. */}
+                    <span className="text-xs font-bold text-foreground">{incident.camera_name}</span>
                   </td>
 
                   <td className="px-6 py-4">
@@ -471,7 +515,7 @@ export const Incidents = () => {
 
       {/* 5. Modal Detalle */}
       {selectedIncident && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 fondo-modal animate-in fade-in duration-200">
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden relative border border-border">
             <button
               onClick={() => setSelectedIncident(null)}
@@ -485,9 +529,14 @@ export const Incidents = () => {
                 <div className="p-2 bg-destructive/10 text-destructive rounded-lg">
                   <AlertTriangle size={24} />
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Incidente {selectedIncident.id}</h2>
-                  <p className="text-sm text-muted-foreground">{selectedIncident.timestamp}</p>
+                <div className="min-w-0">
+                  {/* Manda la fecha, que es lo que el operador necesita leer.
+                      El identificador completo pasa a segunda linea, en
+                      monoespaciada, porque solo sirve para trazabilidad. */}
+                  <h2 className="text-xl font-bold text-foreground">{selectedIncident.timestamp}</h2>
+                  <p className="font-mono text-xs text-muted-foreground break-all">
+                    ID {selectedIncident.id}
+                  </p>
                 </div>
               </div>
 
@@ -504,24 +553,44 @@ export const Incidents = () => {
                 </div>
               </div>
 
-              <div className="bg-black rounded-lg overflow-hidden shadow-inner border border-border relative">
-                <div className="w-full max-h-[60vh] flex items-center justify-center">
-                  <img
-                    src={selectedIncident.image_url}
-                    alt="Captura de evidencia"
-                    className="w-full h-auto max-h-[60vh] object-contain"
-                  />
-                </div>
+              {selectedIncident.image_url ? (
+                <div className="relative overflow-hidden rounded-lg border border-border bg-slate-900 shadow-inner">
+                  <div className="flex max-h-[60vh] w-full items-center justify-center">
+                    <img
+                      src={selectedIncident.image_url}
+                      alt={`Captura de la detección de ${selectedIncident.weapon_type}`}
+                      className="h-auto max-h-[60vh] w-full object-contain"
+                    />
+                  </div>
 
-                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">
-                  {selectedIncident.camera_id}
+                  <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-[10px] text-white backdrop-blur-sm">
+                    {selectedIncident.camera_name}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Antes se pintaba un <img> vacio: salia el icono de imagen
+                   rota sobre una franja negra, sin explicar nada. */
+                <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
+                  <ImageOff className="h-7 w-7 text-muted-foreground" />
+                  <p className="text-sm font-medium text-foreground">Sin captura de evidencia</p>
+                  <p className="text-xs text-muted-foreground">
+                    Esta detección se registró sin imagen adjunta.
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4 border-t border-border">
-                <button className="flex-1 py-2.5 bg-primary text-primary-foreground font-bold rounded-md shadow-md hover:bg-primary/90 transition-all">
-                  Descargar Evidencia
-                </button>
+                {/* Antes este boton no tenia ninguna accion: se pulsaba y no
+                    pasaba nada. Ahora descarga la captura, y solo aparece si
+                    el incidente tiene una. */}
+                {selectedIncident.image_url && (
+                  <button
+                    onClick={() => descargarEvidencia(selectedIncident)}
+                    className="flex-1 py-2.5 bg-primary text-primary-foreground font-bold rounded-md shadow-md hover:bg-primary/90 transition-all"
+                  >
+                    Descargar evidencia
+                  </button>
+                )}
 
                 {/* ✅ SOLO ADMIN: eliminar por ID */}
                 {isAdmin && (

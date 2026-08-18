@@ -12,7 +12,10 @@ interface IncidentApi {
   weapon_type?: string;
   confidence?: number; // puede ser 0..1 o 0..100
   evidence_url?: string | null;
+  /** Las detecciones del agente traen aquí la captura, sin URL en disco. */
+  image_base64?: string | null;
   camera_id?: string | null;
+  camera_name?: string | null;
   timestamp?: string | null; // ISO
   created_at?: string | null; // por si acaso
 }
@@ -23,6 +26,7 @@ interface EvidenceItem {
   confidence: number; // 0..1
   evidenceUrl: string;
   cameraId: string;
+  cameraName: string;
   timestampISO: string;
   severity: Severity;
 }
@@ -34,6 +38,17 @@ interface EvidenceItem {
  * Si REACT_APP_API_BASE = "https://tuservicio.onrender.com/api/v1"
  * entonces PUBLIC_BASE = "https://tuservicio.onrender.com"
  */
+const NOMBRES_ARMA: Record<string, string> = {
+  arma_fuego: "Arma de fuego",
+  arma_blanca: "Arma blanca",
+};
+
+/** arma_fuego -> "Arma de fuego". El operador no lee identificadores. */
+function nombreArma(tipo?: string | null) {
+  if (!tipo) return "Detección";
+  return NOMBRES_ARMA[tipo] ?? tipo.replace(/_/g, " ");
+}
+
 const API_BASE =
   (process as any).env?.REACT_APP_API_BASE ||
   (import.meta as any).env?.VITE_API_URL ||
@@ -101,7 +116,11 @@ export function Evidence() {
       const { data } = await http.get<IncidentApi[]>(`/incidents?limit=500`);
 
       const mapped: EvidenceItem[] = (Array.isArray(data) ? data : [])
-        .filter((i) => !!i.evidence_url)
+        // Antes solo se aceptaban las que tenian evidence_url, es decir las
+        // guardadas en disco por la deteccion desde foto. Las del agente, que
+        // son la mayoria, traen la captura en image_base64 y quedaban fuera de
+        // la galeria: existian en la base pero no se veian por ningun lado.
+        .filter((i) => !!i.evidence_url || !!i.image_base64)
         .map((i) => {
           const conf = normalizeConfidence(i.confidence);
           const ts = String(i.timestamp ?? i.created_at ?? new Date().toISOString());
@@ -109,8 +128,11 @@ export function Evidence() {
             id: String(i._id),
             weaponType: String(i.weapon_type ?? "desconocido"),
             confidence: conf,
-            evidenceUrl: toAbsoluteEvidenceUrl(String(i.evidence_url ?? "")),
+            evidenceUrl: i.image_base64
+              ? `data:image/jpeg;base64,${i.image_base64}`
+              : toAbsoluteEvidenceUrl(String(i.evidence_url ?? "")),
             cameraId: i.camera_id ? String(i.camera_id) : "—",
+            cameraName: String(i.camera_name ?? "Cámara no identificada"),
             timestampISO: ts,
             severity: severityFromConfidence(conf),
           };
@@ -261,7 +283,8 @@ export function Evidence() {
       {!loading && items.length === 0 && !error && <div className="py-16 text-center text-slate-600">No hay evidencias todavía.</div>}
 
       {/* GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Tres por fila desde tablet en adelante; una sola en móvil. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
         {pageData.map((it) => {
           const { date, time } = formatDateTime(it.timestampISO);
           const confPct = Math.round(it.confidence * 100);
@@ -284,23 +307,24 @@ export function Evidence() {
               </div>
 
               <CardContent className="p-4 space-y-3">
+                {/* Manda la fecha; el identificador de Mongo ocupaba toda la
+                    linea y no le sirve de nada al operador. */}
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-mono font-bold text-slate-900 truncate">{it.id}</p>
-                  <Badge variant="outline" className="font-bold text-xs">
-                    {it.weaponType}
+                  <p className="truncate font-bold text-slate-900">{date}</p>
+                  <Badge variant="outline" className="shrink-0 text-xs font-bold">
+                    {nombreArma(it.weaponType)}
                   </Badge>
                 </div>
 
-                <div className="text-xs text-slate-600 space-y-1">
+                <div className="space-y-1 text-xs text-slate-600">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    <span className="font-mono">
-                      {date} {time}
-                    </span>
+                    <Calendar className="h-4 w-4 shrink-0" />
+                    <span className="font-mono">{time}</span>
+                    <span className="ml-auto font-mono text-slate-400">#{it.id.slice(-6)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Camera className="h-4 w-4" />
-                    <span className="font-mono">{it.cameraId}</span>
+                    <Camera className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{it.cameraName}</span>
                   </div>
                 </div>
 
@@ -352,7 +376,7 @@ export function Evidence() {
 
       {/* Modal Ver */}
       {selected && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 fondo-modal">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden relative">
             <button
               onClick={() => setSelected(null)}

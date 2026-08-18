@@ -80,7 +80,12 @@ export function Dashboard() {
         id: a.id ?? idx,
         weaponType: a.weapon_type || a.type || a.label || "Detección",
         confidence: Math.max(0, Math.min(1, Number(confidence) || 0)),
-        camera: String(a.camera_code || a.camera_id || a.camera || "CAM-?"),
+        // Se prioriza el nombre de la cámara. Antes caia en camera_id, que es
+        // el ObjectId de Mongo: 24 caracteres que no le dicen nada a nadie y
+        // que se repetian en el panel, en la ficha y en la tabla.
+        camera: String(
+          a.camera_name || a.cameraName || a.camera_code || a.camera || "Cámara no identificada"
+        ),
         cameraName: a.camera_name || a.cameraName || "",
         location: a.location || a.zone || "",
         timestamp: Number.isFinite(t.getTime()) ? t.toLocaleTimeString() : "",

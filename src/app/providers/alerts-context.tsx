@@ -17,6 +17,7 @@ import {
 } from "../../api/alerts";
 
 import { connectAlertWebSocket } from "../../websocket/alerts";
+import { AlertaEntranteModal } from "../../components/AlertaEntranteModal";
 
 type WsStatus = "connected" | "disconnected" | "error";
 
@@ -25,6 +26,16 @@ type AlertsContextValue = {
   unreadCount: number;
   wsStatus: WsStatus;
   loading: boolean;
+
+  /**
+   * Última alerta llegada por WebSocket y todavía sin atender.
+   *
+   * Existe para poder interrumpir al operador: en un sistema de detección de
+   * armas no basta con que el aviso aparezca en una lista que quizá no esté
+   * mirando.
+   */
+  alertaEntrante: AlertUI | null;
+  descartarEntrante: () => void;
 
   refresh: () => Promise<void>;
   refreshAlerts: () => Promise<void>;
@@ -35,6 +46,42 @@ type AlertsContextValue = {
 };
 
 const AlertsContext = createContext<AlertsContextValue | null>(null);
+
+/**
+ * Aviso sonoro corto, sintetizado con la Web Audio API.
+ *
+ * Se genera en el navegador en vez de cargar un archivo de audio: no añade
+ * peso ni una descarga que la red pueda bloquear. Si el navegador impide
+ * reproducir sonido, falla en silencio y el aviso visual sigue funcionando.
+ */
+function sonarAviso() {
+  try {
+    const Ctx =
+      window.AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+
+    const ctx = new Ctx();
+    const ahora = ctx.currentTime;
+
+    // Dos pulsos: se distingue de cualquier notificación del sistema.
+    [0, 0.22].forEach((retraso) => {
+      const osc = ctx.createOscillator();
+      const vol = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ahora + retraso);
+      vol.gain.setValueAtTime(0.0001, ahora + retraso);
+      vol.gain.exponentialRampToValueAtTime(0.25, ahora + retraso + 0.02);
+      vol.gain.exponentialRampToValueAtTime(0.0001, ahora + retraso + 0.16);
+      osc.connect(vol).connect(ctx.destination);
+      osc.start(ahora + retraso);
+      osc.stop(ahora + retraso + 0.18);
+    });
+
+    window.setTimeout(() => ctx.close().catch(() => {}), 900);
+  } catch {
+    // El navegador puede bloquear el audio sin interacción previa del usuario.
+  }
+}
 
 function hasToken() {
   return Boolean(
@@ -50,6 +97,9 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
   const [alerts, setAlerts] = useState<AlertUI[]>([]);
   const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
   const [loading, setLoading] = useState(false);
+  const [alertaEntrante, setAlertaEntrante] = useState<AlertUI | null>(null);
+
+  const descartarEntrante = useCallback(() => setAlertaEntrante(null), []);
 
   const pollingRef = useRef<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -133,6 +183,11 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
           if (exists) return prev;
           return [newAlert, ...prev];
         });
+
+        // Solo interrumpe con alertas llegadas en vivo, no con las que ya
+        // estaban en la base al abrir el panel.
+        setAlertaEntrante(newAlert);
+        sonarAviso();
       },
       (status) => {
         setWsStatus(status);
@@ -173,6 +228,8 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
         unreadCount,
         wsStatus,
         loading,
+        alertaEntrante,
+        descartarEntrante,
         refresh,
         refreshAlerts: refresh,
         markAsRead,
@@ -181,6 +238,16 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+
+      {/* Se monta aquí, junto al WebSocket, para que el aviso interrumpa
+          desde cualquier módulo y no solo estando en el centro de alertas. */}
+      <AlertaEntranteModal
+        alerta={alertaEntrante}
+        onCerrar={descartarEntrante}
+        onMarcarLeida={(id) => {
+          markAsRead(id).catch(() => {});
+        }}
+      />
     </AlertsContext.Provider>
   );
 }

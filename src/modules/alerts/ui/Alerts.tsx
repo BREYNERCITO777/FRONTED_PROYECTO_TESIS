@@ -16,7 +16,6 @@ import {
   Camera,
   Shield,
   Bell,
-  TrendingUp,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
@@ -24,8 +23,20 @@ import {
 
 import { useAlerts } from "../../../app/providers/alerts-context";
 import { useAuth } from "../../../context/auth-context";
+import { AlertaEntranteModal } from "../../../components/AlertaEntranteModal";
 
 type Tab = "all" | "unread" | "read";
+
+const NOMBRES_ARMA: Record<string, string> = {
+  arma_fuego: "Arma de fuego",
+  arma_blanca: "Arma blanca",
+};
+
+/** Convierte arma_fuego en "Arma de fuego": el operador no lee identificadores. */
+function nombreArma(tipo?: string | null) {
+  if (!tipo) return "Detección";
+  return NOMBRES_ARMA[tipo] ?? tipo.replace(/_/g, " ");
+}
 
 export function Alerts() {
   const { user } = useAuth();
@@ -39,8 +50,11 @@ export function Alerts() {
   } = useAlerts();
 
   const [activeTab, setActiveTab] = useState<Tab>("all");
+  const [detalle, setDetalle] = useState<any | null>(null);
 
-  const pageSize = 4;
+  // Con filas compactas caben muchas más por pantalla que con las tarjetas
+  // anteriores, que mostraban la evidencia a tamaño completo.
+  const pageSize = 10;
   const [page, setPage] = useState(1);
 
   const readCount = useMemo(
@@ -143,172 +157,98 @@ export function Alerts() {
     }
   };
 
+  /**
+   * Fila compacta.
+   *
+   * Antes cada alerta era una tarjeta con la evidencia a tamaño completo: una
+   * sola ocupaba toda la pantalla y había que desplazarse para ver la
+   * siguiente. En un centro de alertas lo que importa es abarcar muchas de un
+   * vistazo; la imagen grande vive ahora en el detalle.
+   */
   const AlertCard = ({ alert }: { alert: any }) => {
     const config = getSeverityConfig(alert.severity);
     const dt = formatDateTime(alert.timestamp || alert.created_at);
+    const conf = Math.max(0, Math.min(1, alert.confidence ?? 0));
 
     return (
       <Card
-        className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${config.cardBorder} ${config.cardBg} ${
-          alert.severity === "critical" && !alert.read
-            ? "ring-1 ring-rose-300"
-            : ""
+        onClick={() => setDetalle(alert)}
+        className={`cursor-pointer border-0 shadow-sm transition-all duration-200 hover:shadow-md overflow-hidden ${config.cardBorder} ${
+          !alert.read ? "bg-white" : "bg-slate-50/60"
         }`}
       >
-        <CardContent className="p-4">
-          <div className="flex gap-3">
-            <div
-              className={`${config.iconBg} p-2.5 rounded-xl h-fit ${
-                alert.severity === "critical" && !alert.read
-                  ? config.pulseEffect
-                  : ""
-              }`}
-            >
-              {config.icon}
-            </div>
-
-            <div className="flex-1 space-y-3 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-base text-slate-900 truncate">
-                      {alert.title || "Alerta"}
-                    </h3>
-
-                    {!alert.read && (
-                      <Badge className="bg-blue-600 text-white shadow-sm text-[11px] px-2 py-0.5">
-                        <Bell className="h-3 w-3 mr-1" />
-                        Nueva
-                      </Badge>
-                    )}
-                  </div>
-
-                  <p className="text-slate-700 text-sm leading-snug mt-1">
-                    {alert.message || "Evento detectado por Sentinel AI"}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge
-                    className={`${config.badge} font-bold text-xs px-3 py-1 shadow-sm whitespace-nowrap`}
-                  >
-                    {config.label}
-                  </Badge>
-                </div>
-              </div>
-
-              {alert.evidenceImage && (
-                <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-                  <img
-                    src={alert.evidenceImage}
-                    alt="Evidencia de alerta"
-                    className="w-full max-h-[360px] object-contain bg-black"
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200">
-                  <p className="text-[10px] text-slate-600 font-bold mb-1 uppercase">
-                    Detección
-                  </p>
-
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-3.5 w-3.5 text-blue-600" />
-                    <p className="font-bold text-slate-900 text-xs truncate">
-                      {alert.weapon_type ?? alert.type ?? "-"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200">
-                  <p className="text-[10px] text-slate-600 font-bold mb-1 uppercase">
-                    Cámara
-                  </p>
-
-                  <div className="flex items-center gap-2">
-                    <Camera className="h-3.5 w-3.5 text-blue-600" />
-                    <div className="min-w-0">
-                      <p className="font-mono text-[11px] font-bold text-slate-900">
-                        {alert.camera_id ?? "-"}
-                      </p>
-                      <p className="text-[11px] text-slate-600 truncate">
-                        {alert.camera_name ?? "—"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200">
-                  <p className="text-[10px] text-slate-600 font-bold mb-1 uppercase">
-                    Confianza
-                  </p>
-
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-
-                    <div className="flex items-center gap-2">
-                      <div className="w-14 bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className={`h-full ${
-                            (alert.confidence ?? 0) >= 0.9
-                              ? "bg-emerald-500"
-                              : (alert.confidence ?? 0) >= 0.7
-                              ? "bg-amber-500"
-                              : "bg-rose-500"
-                          }`}
-                          style={{
-                            width: `${
-                              Math.max(
-                                0,
-                                Math.min(1, alert.confidence ?? 0)
-                              ) * 100
-                            }%`,
-                          }}
-                        />
-                      </div>
-
-                      <span className="font-bold text-slate-900 text-xs">
-                        {alert.confidence != null
-                          ? `${(alert.confidence * 100).toFixed(0)}%`
-                          : "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200">
-                  <p className="text-[10px] text-slate-600 font-bold mb-1 uppercase">
-                    Fecha y Hora
-                  </p>
-
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-3.5 w-3.5 text-blue-600" />
-                    <div>
-                      <p className="font-mono text-[11px] font-bold text-slate-900">
-                        {dt.time}
-                      </p>
-                      <p className="font-mono text-[11px] text-slate-600">
-                        {dt.date}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {!alert.read && (
-                <div className="pt-1">
-                  <Button
-                    size="sm"
-                    onClick={() => markAsRead(alert._id)}
-                    className="h-9 text-xs bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-sm"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Marcar como leída
-                  </Button>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            {/* Miniatura: permite descartar un falso positivo sin abrir nada. */}
+            <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
+              {alert.evidenceImage ? (
+                <img
+                  src={alert.evidenceImage}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Camera className="h-4 w-4 text-slate-500" />
                 </div>
               )}
             </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                {!alert.read && (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" title="Sin leer" />
+                )}
+                <h3 className="truncate text-sm font-bold text-slate-900">
+                  {nombreArma(alert.weapon_type ?? alert.type)}
+                </h3>
+                <Badge className={`${config.badge} shrink-0 px-2 py-0 text-[10px] font-bold`}>
+                  {config.label}
+                </Badge>
+              </div>
+
+              <p className="mt-0.5 flex items-center gap-3 text-xs text-slate-600">
+                <span className="inline-flex items-center gap-1 truncate">
+                  <Camera className="h-3 w-3 shrink-0" />
+                  {alert.camera_name ?? "Cámara no identificada"}
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 font-mono">
+                  <Clock className="h-3 w-3" />
+                  {dt.time}
+                </span>
+              </p>
+            </div>
+
+            {/* Confianza: barra + número, alineados para poder compararlos
+                de un vistazo entre filas. */}
+            <div className="hidden w-28 shrink-0 items-center gap-2 sm:flex">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className={`h-full ${
+                    conf >= 0.9 ? "bg-rose-500" : conf >= 0.7 ? "bg-amber-500" : "bg-slate-400"
+                  }`}
+                  style={{ width: `${conf * 100}%` }}
+                />
+              </div>
+              <span className="w-9 text-right font-mono text-xs font-bold tabular-nums text-slate-900">
+                {alert.confidence != null ? `${(conf * 100).toFixed(0)}%` : "—"}
+              </span>
+            </div>
+
+            {!alert.read && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  markAsRead(alert._id);
+                }}
+                className="hidden shrink-0 border-slate-300 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 md:inline-flex"
+                title="Marcar como leída"
+              >
+                <CheckCircle className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -542,6 +482,14 @@ export function Alerts() {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Se reutiliza el mismo aviso que aparece al llegar una detección, para
+          que el operador vea siempre la misma ficha. */}
+      <AlertaEntranteModal
+        alerta={detalle}
+        onCerrar={() => setDetalle(null)}
+        onMarcarLeida={(id) => markAsRead(id)}
+      />
     </div>
   );
 }

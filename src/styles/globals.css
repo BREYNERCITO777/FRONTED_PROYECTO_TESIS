@@ -112,4 +112,34 @@ html {
     height: var(--header-height);
     @apply flex items-center px-4 py-0 border-b bg-card;
   }
+
+  /*
+   * Fondo unico para todos los modales.
+   *
+   * Antes cada uno usaba un valor distinto: bg-black/60, bg-black/50,
+   * bg-slate-900/70 y, el peor de todos, bg-background/80, que en este tema
+   * resuelve a un blanco al 80% y dejaba el panel de detras perfectamente
+   * legible bajo un velo lavado.
+   *
+   * Quien oculta el fondo es el DESENFOQUE, no la oscuridad: con 14px lo de
+   * atras deja de leerse por completo, asi que basta un tinte suave para
+   * separar el modal. Subir el tinte hasta oscurecer la pantalla resultaba
+   * pesado y hacia que el panel pareciera apagado.
+   *
+   * Se declara con un color explicito, no con utilidades de opacidad sobre
+   * variables del tema, que es justo lo que provoco el caso del velo blanco.
+   */
+  .fondo-modal {
+    background-color: rgba(15, 23, 42, 0.35);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+  }
+
+  /* Si el navegador no soporta desenfoque de fondo, el tinte suave no bastaria
+     para ocultar lo de atras: solo en ese caso se recurre a oscurecer. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .fondo-modal {
+      background-color: rgba(15, 23, 42, 0.72);
+    }
+  }
 }

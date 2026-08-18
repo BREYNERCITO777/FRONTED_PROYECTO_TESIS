@@ -456,7 +456,7 @@ export function Cameras() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
+                    <TableHead className="w-14 text-center">N.º</TableHead>
                     <TableHead>Cámara</TableHead>
                     <TableHead className="text-center">Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
@@ -464,9 +464,15 @@ export function Cameras() {
                 </TableHeader>
 
                 <TableBody>
-                  {pageData.map((camera) => (
+                  {pageData.map((camera, i) => (
                     <TableRow key={camera.id}>
-                      <TableCell className="font-mono text-xs">{camera.id}</TableCell>
+                      {/* Numeracion correlativa en lugar del ObjectId de Mongo,
+                          que son 24 caracteres sin significado para el operador.
+                          Se calcula sobre el total, no sobre la pagina, para que
+                          la segunda pagina siga en 6 y no vuelva a empezar en 1. */}
+                      <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                        {String((page - 1) * pageSize + i + 1).padStart(2, "0")}
+                      </TableCell>
                       <TableCell className="font-semibold">{camera.name}</TableCell>
                       <TableCell className="text-center">
                         <Badge
@@ -551,6 +557,9 @@ export function Cameras() {
       {/* MODAL STREAM MEJORADO */}
       <Dialog open={isVideoModalOpen} onOpenChange={(v) => (v ? setIsVideoModalOpen(true) : closeVideo())}>
         <DialogContent
+          /* Este diálogo ya tiene su propio botón de cerrar junto a
+             "Recargar" y "Pantalla completa": sin esto salían dos aspas. */
+          showClose={false}
           className={
             isFullscreen
               ? "p-0 w-[100vw] h-[100vh] max-w-none rounded-none bg-white border-slate-200"
@@ -655,16 +664,19 @@ export function Cameras() {
               )}
             </div>
 
-            {activeVideoCamera && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <span className="mt-px shrink-0 font-mono text-[10px] uppercase tracking-wider text-slate-400">
-                  Origen
-                </span>
-                {/* El token va oculto: ver getStreamUrlVisible(). */}
-                <code className="break-all font-mono text-[11px] leading-relaxed text-slate-600">
+            {/* La URL del flujo es informacion de depuracion: ocupaba dos
+                lineas bajo el video y no le dice nada al operador. Se muestra
+                solo cuando algo falla, que es cuando sirve para diagnosticar,
+                y siempre con el token enmascarado. */}
+            {activeVideoCamera && streamError && (
+              <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-medium text-slate-600 hover:text-slate-900">
+                  Detalles técnicos
+                </summary>
+                <code className="mt-2 block break-all font-mono text-[11px] leading-relaxed text-slate-500">
                   {getStreamUrlVisible(activeVideoCamera.id)}
                 </code>
-              </div>
+              </details>
             )}
           </div>
         </DialogContent>
