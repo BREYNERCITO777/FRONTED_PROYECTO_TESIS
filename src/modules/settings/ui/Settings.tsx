@@ -6,10 +6,8 @@ import { Switch } from "../../../shared/ui/switch";
 import { Button } from "../../../shared/ui/button";
 import { Badge } from "../../../shared/ui/badge";
 import {
-  CheckCircle,
   Save,
   RefreshCw,
-  Cpu,
   Settings2,
   Bell,
   AlertTriangle,
@@ -51,14 +49,27 @@ export function Settings() {
   const [saving, setSaving] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
-  const modelStatus = useMemo(() => {
-    return {
-      name: "YOLOv8-Weapons",
-      version: "2.1.0",
-      accuracy: 94.2,
-      status: "loaded" as "loaded" | "offline",
-      lastUpdate: updatedAt ? updatedAt.slice(0, 10) : "—",
-    };
+  /**
+   * ⚠️ Antes esta tarjeta mostraba "Modelo: YOLOv8-Weapons", "Versión: 2.1.0" y
+   * "Precisión: 94.2%" con esos valores escritos a mano en este archivo. No
+   * venían del modelo ni del backend: eran texto fijo. Enseñar una precisión
+   * inventada en el panel es indefendible, asi que se retiran.
+   *
+   * Lo único que aquí se puede afirmar con certeza es cuándo se guardó por
+   * última vez la configuración, que sí llega del backend.
+   */
+  const ultimaConfig = useMemo(() => {
+    if (!updatedAt) return "—";
+    const d = new Date(updatedAt);
+    return Number.isFinite(d.getTime())
+      ? d.toLocaleString("es-PE", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—";
   }, [updatedAt]);
 
   const applyFromBackend = (data: SystemSettings) => {
@@ -137,30 +148,7 @@ export function Settings() {
     });
   };
 
-  const MiniStat = ({
-    icon,
-    label,
-    value,
-    sub,
-    accentBg,
-  }: {
-    icon: React.ReactNode;
-    label: string;
-    value: React.ReactNode;
-    sub?: React.ReactNode;
-    accentBg: string;
-  }) => (
-    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-      <div className="flex items-center gap-2">
-        <div className={`p-2 rounded-lg ${accentBg}`}>{icon}</div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">{label}</p>
-      </div>
-      <div className="mt-2">
-        <div className="text-base font-bold text-slate-900">{value}</div>
-        {sub && <div className="text-xs text-slate-600 mt-1">{sub}</div>}
-      </div>
-    </div>
-  );
+
 
   const SliderBlock = ({
     id,
@@ -263,101 +251,25 @@ export function Settings() {
         </Button>
       </div>
 
-      {/* Estado del modelo */}
-      <Card className="border-0 shadow-sm overflow-hidden">
-        <CardHeader className="border-b bg-gradient-to-r from-blue-600 to-blue-700 py-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl">
-              <Cpu className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-base text-white">Estado del Modelo de IA</CardTitle>
-              <CardDescription className="text-blue-100 text-xs">Información del modelo YOLO activo</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pt-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <MiniStat
-              accentBg="bg-blue-100"
-              icon={<Activity className="h-4 w-4 text-blue-600" />}
-              label="Modelo"
-              value={modelStatus.name}
-            />
-            <MiniStat
-              accentBg="bg-purple-100"
-              icon={<Zap className="h-4 w-4 text-purple-600" />}
-              label="Versión"
-              value={<span className="font-mono">{modelStatus.version}</span>}
-            />
-            <MiniStat
-              accentBg="bg-emerald-100"
-              icon={<CheckCircle className="h-4 w-4 text-emerald-600" />}
-              label="Precisión"
-              value={`${modelStatus.accuracy}%`}
-            />
-
-            <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-              <div className="flex items-center gap-2">
-                <div className={`p-2 rounded-lg ${modelStatus.status === "loaded" ? "bg-emerald-100" : "bg-rose-100"}`}>
-                  {modelStatus.status === "loaded" ? (
-                    <CheckCircle className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <AlertTriangle className="h-4 w-4 text-rose-600" />
-                  )}
-                </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Estado</p>
-              </div>
-
-              <div className="mt-2">
-                {modelStatus.status === "loaded" ? (
-                  <Badge className="bg-emerald-600 text-white shadow-sm text-xs px-3 py-1 inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                    Cargado
-                  </Badge>
-                ) : (
-                  <Badge className="bg-rose-600 text-white shadow-sm text-xs px-3 py-1 inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-white" />
-                    Offline
-                  </Badge>
-                )}
-              </div>
-
-              <p className="text-[11px] text-slate-600 mt-2">
-                Última actualización: <span className="font-mono">{modelStatus.lastUpdate}</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700">Acciones del modelo</p>
-              <p className="text-[11px] text-slate-600">Recarga el modelo si hiciste cambios o actualizaciones.</p>
-            </div>
-            <Button variant="outline" size="sm" className="h-9 hover:bg-slate-50" disabled>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Recargar modelo
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Dos columnas en pantallas anchas: antes todo iba apilado en una sola
+          y la página se hacía interminable. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
 
       {/* Parámetros de detección */}
       <Card className="border-0 shadow-sm">
-        <CardHeader className="border-b bg-gradient-to-r from-slate-50 to-slate-100 py-4">
+        <CardHeader className="border-b bg-slate-50 py-3">
           <div className="flex items-center gap-3">
-            <div className="bg-amber-100 p-2.5 rounded-xl">
-              <Settings2 className="h-5 w-5 text-amber-600" />
+            <div className="bg-amber-100 p-2 rounded-lg">
+              <Settings2 className="h-4 w-4 text-amber-600" />
             </div>
             <div>
-              <CardTitle className="text-base">Parámetros de Detección</CardTitle>
+              <CardTitle className="text-sm">Parámetros de detección</CardTitle>
               <CardDescription className="text-xs">Umbral, FPS y frecuencia de inferencia</CardDescription>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="pt-5 space-y-3">
+        <CardContent className="pt-4 space-y-2">
           <SliderBlock
             id="confidence"
             icon={<Activity className="h-4 w-4 text-blue-600" />}
@@ -407,22 +319,22 @@ export function Settings() {
 
       {/* Notificaciones y evidencias */}
       <Card className="border-0 shadow-sm">
-        <CardHeader className="border-b bg-gradient-to-r from-slate-50 to-slate-100 py-4">
+        <CardHeader className="border-b bg-slate-50 py-3">
           <div className="flex items-center gap-3">
-            <div className="bg-rose-100 p-2.5 rounded-xl">
-              <Bell className="h-5 w-5 text-rose-600" />
+            <div className="bg-rose-100 p-2 rounded-lg">
+              <Bell className="h-4 w-4 text-rose-600" />
             </div>
-            <div>
-              <CardTitle className="text-base">Notificaciones y Evidencias</CardTitle>
+            <div className="min-w-0">
+              <CardTitle className="text-sm">Notificaciones y evidencias</CardTitle>
               <CardDescription className="text-xs">
-                Controla alertas, email, sonido y guardado automático
+                Última configuración guardada: {ultimaConfig}
               </CardDescription>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="pt-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <ToggleItem
               id="autoAlert"
               icon={<Bell className="h-4 w-4 text-blue-600" />}
@@ -436,7 +348,7 @@ export function Settings() {
               id="emailNotifications"
               icon={<AlertTriangle className="h-4 w-4 text-purple-600" />}
               title="Notificaciones por email"
-              desc="Envía email en incidentes críticos."
+              desc="No implementado: el backend no envía correos."
               checked={emailNotifications}
               onChange={setEmailNotifications}
             />
@@ -445,7 +357,7 @@ export function Settings() {
               id="soundAlerts"
               icon={<Volume2 className="h-4 w-4 text-amber-600" />}
               title="Alertas sonoras"
-              desc="Reproduce sonido en el navegador."
+              desc="Suena un aviso al llegar una detección."
               checked={soundAlerts}
               onChange={setSoundAlerts}
             />
@@ -454,7 +366,7 @@ export function Settings() {
               id="saveEvidence"
               icon={<Database className="h-4 w-4 text-emerald-600" />}
               title="Guardar evidencia"
-              desc="Guarda capturas automáticamente."
+              desc="La evidencia se guarda siempre; este control aún no la desactiva."
               checked={saveEvidence}
               onChange={setSaveEvidence}
             />
@@ -462,22 +374,28 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Acciones */}
-      <div className="flex flex-col sm:flex-row gap-2 pt-1 pb-4">
+      </div>
+
+      {/* Acciones: fijas abajo, para no tener que subir tras mover un control. */}
+      <div className="sticky bottom-0 -mx-8 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-8 py-3 backdrop-blur sm:flex-row sm:items-center">
         <Button
           onClick={handleSave}
           size="sm"
-          className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md"
+          className="h-10 bg-blue-700 shadow-sm hover:bg-blue-800"
           disabled={saving}
         >
           <Save className="h-4 w-4 mr-2" />
-          {saving ? "Guardando..." : "Guardar"}
+          {saving ? "Guardando..." : "Guardar cambios"}
         </Button>
 
         <Button onClick={handleReset} variant="outline" size="sm" className="h-10 hover:bg-slate-100">
           <RefreshCw className="h-4 w-4 mr-2" />
           Restablecer
         </Button>
+
+        <p className="text-xs text-slate-500 sm:ml-auto">
+          Solo el umbral de confianza afecta hoy a la detección.
+        </p>
       </div>
     </div>
   );

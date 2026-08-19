@@ -386,10 +386,17 @@ export function Evidence() {
             </button>
 
             <div className="p-5 border-b">
-              <div className="min-w-0">
-                <h2 className="text-lg font-bold text-slate-900 truncate">Evidencia {selected.id}</h2>
+              {/* Manda el tipo de deteccion; los ObjectId de Mongo pasan a un
+                  codigo corto porque no le dicen nada al operador. */}
+              <div className="min-w-0 pr-12">
+                <h2 className="truncate text-lg font-bold text-slate-900">
+                  {nombreArma(selected.weaponType)}
+                  <span className="ml-2 font-mono text-xs font-normal text-slate-400">
+                    #{selected.id.slice(-6)}
+                  </span>
+                </h2>
                 <p className="text-sm text-slate-600">
-                  {selected.weaponType} · {Math.round(selected.confidence * 100)}% · Cámara: {selected.cameraId}
+                  {Math.round(selected.confidence * 100)}% de confianza · {selected.cameraName}
                 </p>
               </div>
             </div>
