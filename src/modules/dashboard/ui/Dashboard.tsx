@@ -34,6 +34,12 @@ type UiRecentItem = {
   severity: "low" | "medium" | "high" | "critical";
 };
 
+/** Nombres legibles de las clases que produce el modelo. */
+const NOMBRES_ARMA: Record<string, string> = {
+  arma_fuego: "Arma de fuego",
+  arma_blanca: "Arma blanca",
+};
+
 export function Dashboard() {
   // ✅ PAGINACIÓN
   const pageSize = 10;
@@ -115,6 +121,34 @@ export function Dashboard() {
   }).length;
 
   const lastAlert = recentActivity[0];
+
+  /**
+   * Reparto real por tipo de arma, calculado sobre las detecciones registradas.
+   *
+   * ⚠️ Antes estas tres barras eran fijas: Pistola 75%, Rifle 15% y Cuchillo
+   * 10%, escritas a mano. Ademas de ser cifras inventadas, esas categorias ni
+   * siquiera existen en el modelo, que clasifica en arma_fuego y arma_blanca.
+   */
+  const distribucion = useMemo(() => {
+    const colores = ["bg-primary", "bg-indigo-500", "bg-amber-500", "bg-emerald-500"];
+    const cuenta = new Map<string, number>();
+
+    recentActivity.forEach((a) => {
+      const t = a.weaponType || "Detección";
+      cuenta.set(t, (cuenta.get(t) ?? 0) + 1);
+    });
+
+    const total = recentActivity.length || 1;
+
+    return Array.from(cuenta.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([tipo, n], i) => ({
+        label: NOMBRES_ARMA[tipo] ?? tipo.replace(/_/g, " "),
+        n,
+        pct: Math.round((n / total) * 100),
+        color: colores[i % colores.length],
+      }));
+  }, [recentActivity]);
 
   const kpiData = [
     {
@@ -474,21 +508,28 @@ export function Dashboard() {
             </CardHeader>
 
             <CardContent className="pt-4 px-5 space-y-3">
-              {[
-                { label: "Pistola", val: 75, color: "bg-primary" },
-                { label: "Rifle", val: 15, color: "bg-indigo-500" },
-                { label: "Cuchillo", val: 10, color: "bg-amber-500" },
-              ].map((item, idx) => (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-bold">
-                    <span>{item.label}</span>
-                    <span className="text-muted-foreground">{item.val}%</span>
+              {distribucion.length === 0 ? (
+                <p className="py-4 text-center text-xs text-muted-foreground">
+                  Sin detecciones registradas todavía.
+                </p>
+              ) : (
+                distribucion.map((item) => (
+                  <div key={item.label} className="space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-bold">
+                      <span>{item.label}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {item.pct}% · {item.n}
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`${item.color} h-full rounded-full transition-all`}
+                        style={{ width: `${item.pct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                    <div className={`${item.color} h-full rounded-full transition-all`} style={{ width: `${item.val}%` }} />
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
