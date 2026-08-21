@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { AlertTriangle, Camera, Clock, Gauge, ImageOff, X } from "lucide-react";
+import { AlertTriangle, Clock, Gauge, ImageOff, X } from "lucide-react";
 
 import { AlertUI } from "../api/alerts";
 
@@ -111,7 +111,7 @@ export function AlertaEntranteModal({ alerta, onCerrar, onMarcarLeida }: Props) 
                     critica ? "text-rose-600" : "text-amber-600"
                   }`}
                 >
-                  {critica ? "Detección crítica" : "Detección detectada"}
+                  {critica ? "Detección crítica" : "Detección confirmada"}
                 </span>
               </div>
 
@@ -140,12 +140,12 @@ export function AlertaEntranteModal({ alerta, onCerrar, onMarcarLeida }: Props) 
             )}
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2">
+          {/* La camara ya aparece entera bajo el titulo. Repetirla aqui la
+              obligaba a caber en un tercio del ancho y salia cortada
+              ("Frontis MPSM - ..."), que es peor que no repetirla. */}
+          <div className="mt-4 grid grid-cols-2 gap-2">
             <Dato icono={<Gauge size={13} />} etiqueta="Confianza">
               {alerta.confidence != null ? `${Math.round(alerta.confidence * 100)}%` : "—"}
-            </Dato>
-            <Dato icono={<Camera size={13} />} etiqueta="Cámara">
-              {alerta.camera_name || "—"}
             </Dato>
             <Dato icono={<Clock size={13} />} etiqueta="Hora">
               {hora(alerta.timestamp ?? alerta.created_at)}
