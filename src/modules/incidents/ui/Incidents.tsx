@@ -106,6 +106,24 @@ function normalizeIncident(raw: any): Incident {
 }
 
 /**
+ * El backend nombra las clases como estan en el modelo: arma_fuego. Eso es el
+ * nombre de un campo, no algo que se le pone delante a un operador.
+ */
+function nombreArma(tipo: string): string {
+  const conocidos: Record<string, string> = {
+    arma_fuego: "Arma de fuego",
+    arma_blanca: "Arma blanca",
+  };
+  const clave = tipo.trim().toLowerCase();
+  if (conocidos[clave]) return conocidos[clave];
+
+  // Cualquier clase que se añada al modelo mas adelante se muestra legible
+  // aunque no este en la lista.
+  const limpio = clave.replace(/[_-]+/g, " ").trim();
+  return limpio ? limpio.charAt(0).toUpperCase() + limpio.slice(1) : "Detección";
+}
+
+/**
  * Descarga la captura del incidente con un nombre de archivo con sentido:
  * evidencia_arma_fuego_6a83cd21.jpg en vez de "descarga.jpg".
  */
@@ -130,7 +148,20 @@ export const Incidents = () => {
   const [filterCamera, setFilterCamera] = useState("all");
   const [filterSeverity, setFilterSeverity] = useState("all");
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  // La captura puede existir en el registro y aun asi no poder mostrarse: los
+  // incidentes antiguos apuntan a un archivo que el servidor ya no tiene.
+  const [evidenciaRota, setEvidenciaRota] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Solo se muestra la captura si el incidente la tiene Y el navegador ha
+  // conseguido cargarla.
+  const hayEvidencia = Boolean(selectedIncident?.image_url) && !evidenciaRota;
+
+  /** Abre la ficha partiendo siempre de cero, sin arrastrar el fallo anterior. */
+  const abrirIncidente = (incidente: Incident) => {
+    setEvidenciaRota(false);
+    setSelectedIncident(incidente);
+  };
 
   // ✅ PAGINACIÓN (5 en 5)
   const pageSize = 5;
@@ -167,9 +198,15 @@ export const Incidents = () => {
 
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
+      // Se busca tanto por el nombre interno (arma_fuego) como por el que ve
+      // el operador (Arma de fuego): escribir lo que esta leyendo en pantalla
+      // no puede devolver cero resultados.
+      const buscado = searchTerm.toLowerCase();
       const matchesSearch =
-        inc.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inc.weapon_type.toLowerCase().includes(searchTerm.toLowerCase());
+        inc.id.toLowerCase().includes(buscado) ||
+        inc.weapon_type.toLowerCase().includes(buscado) ||
+        nombreArma(inc.weapon_type).toLowerCase().includes(buscado) ||
+        inc.camera_name.toLowerCase().includes(buscado);
 
       const matchesCamera = filterCamera === "all" || inc.camera_id === filterCamera;
       const matchesSeverity = filterSeverity === "all" || inc.severity === filterSeverity;
@@ -399,7 +436,9 @@ export const Incidents = () => {
                           incident.severity === "critical" ? "bg-destructive animate-pulse" : "bg-primary"
                         }`}
                       />
-                      <span className="text-sm font-bold text-foreground">{incident.weapon_type}</span>
+                      <span className="text-sm font-bold text-foreground">
+                        {nombreArma(incident.weapon_type)}
+                      </span>
                     </div>
                   </td>
 
@@ -438,7 +477,7 @@ export const Incidents = () => {
 
                   <td className="px-6 py-4 text-right space-x-1">
                     <button
-                      onClick={() => setSelectedIncident(incident)}
+                      onClick={() => abrirIncidente(incident)}
                       className="p-2 text-muted-foreground hover:text-primary hover:bg-accent rounded-md transition-all inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
                     >
                       <Eye size={16} /> <span className="hidden xl:inline">Detalles</span>
@@ -516,7 +555,9 @@ export const Incidents = () => {
       {/* 5. Modal Detalle */}
       {selectedIncident && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 fondo-modal animate-in fade-in duration-200">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden relative border border-border">
+          {/* Si la ficha no cabe a lo alto se desplaza por dentro, en vez de
+              dejar los botones fuera de la pantalla. */}
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative border border-border">
             <button
               onClick={() => setSelectedIncident(null)}
               className="absolute top-4 right-4 p-2 bg-muted text-muted-foreground hover:text-foreground rounded-full z-10"
@@ -540,26 +581,46 @@ export const Incidents = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* En pantallas estrechas se apilan en vez de aplastarse. */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="p-4 bg-muted/50 rounded-lg border border-border">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 tracking-widest">
                     Detección
                   </p>
-                  <p className="font-bold text-foreground">{selectedIncident.weapon_type}</p>
+                  <p className="font-bold text-foreground">
+                    {nombreArma(selectedIncident.weapon_type)}
+                  </p>
                 </div>
+
+                {/* La confianza no se mostraba en la ficha, y es justo el dato
+                    que decide si el operador se fia de la deteccion. */}
+                <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 tracking-widest">
+                    Confianza
+                  </p>
+                  <p className="font-bold text-foreground tabular-nums">
+                    {(selectedIncident.confidence * 100).toFixed(1)}%
+                  </p>
+                </div>
+
                 <div className="p-4 bg-muted/50 rounded-lg border border-border">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 tracking-widest">Cámara</p>
-                  <p className="font-bold text-foreground">{selectedIncident.camera_name}</p>
+                  <p className="font-bold text-foreground break-words">
+                    {selectedIncident.camera_name}
+                  </p>
                 </div>
               </div>
 
-              {selectedIncident.image_url ? (
+              {hayEvidencia ? (
                 <div className="relative overflow-hidden rounded-lg border border-border bg-slate-900 shadow-inner">
-                  <div className="flex max-h-[60vh] w-full items-center justify-center">
+                  {/* min-h evita que el hueco se derrumbe en una franja mientras
+                      la imagen carga. */}
+                  <div className="flex min-h-[14rem] max-h-[60vh] w-full items-center justify-center">
                     <img
                       src={selectedIncident.image_url}
                       alt={`Captura de la detección de ${selectedIncident.weapon_type}`}
                       className="h-auto max-h-[60vh] w-full object-contain"
+                      onError={() => setEvidenciaRota(true)}
                     />
                   </div>
 
@@ -569,13 +630,31 @@ export const Incidents = () => {
                 </div>
               ) : (
                 /* Antes se pintaba un <img> vacio: salia el icono de imagen
-                   rota sobre una franja negra, sin explicar nada. */
+                   rota sobre una franja negra, sin explicar nada.
+                   Se distingue no tener captura de tenerla y no poder cargarla:
+                   son dos situaciones distintas y el operador necesita saber
+                   cual de las dos esta viendo. */
                 <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
                   <ImageOff className="h-7 w-7 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground">Sin captura de evidencia</p>
-                  <p className="text-xs text-muted-foreground">
-                    Esta detección se registró sin imagen adjunta.
-                  </p>
+                  {evidenciaRota ? (
+                    <>
+                      <p className="text-sm font-medium text-foreground">
+                        La captura ya no está disponible
+                      </p>
+                      <p className="max-w-sm text-xs text-muted-foreground">
+                        El incidente sigue registrado, pero su imagen se guardó como archivo
+                        en el servidor y ya no se encuentra allí. Las detecciones nuevas
+                        guardan la captura junto al incidente y no vuelven a perderse.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-foreground">Sin captura de evidencia</p>
+                      <p className="text-xs text-muted-foreground">
+                        Esta detección se registró sin imagen adjunta.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -583,7 +662,7 @@ export const Incidents = () => {
                 {/* Antes este boton no tenia ninguna accion: se pulsaba y no
                     pasaba nada. Ahora descarga la captura, y solo aparece si
                     el incidente tiene una. */}
-                {selectedIncident.image_url && (
+                {hayEvidencia && (
                   <button
                     onClick={() => descargarEvidencia(selectedIncident)}
                     className="flex-1 py-2.5 bg-primary text-primary-foreground font-bold rounded-md shadow-md hover:bg-primary/90 transition-all"
