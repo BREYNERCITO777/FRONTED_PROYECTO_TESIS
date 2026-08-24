@@ -1,7 +1,6 @@
 // frontend/src/modules/settings/api/settingsService.ts
 
-const API_BASE =
-  process.env.REACT_APP_API_BASE || "http://localhost:8000/api/v1";
+import { API_BASE } from "../../../api/base";
 
 export type SystemSettings = {
   confidence_threshold: number;

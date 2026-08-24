@@ -3,6 +3,7 @@ import { Card, CardContent } from "../../../shared/ui/card";
 import { Button } from "../../../shared/ui/button";
 import { Badge } from "../../../shared/ui/badge";
 import { Download, Eye, Camera, Calendar, Image as ImageIcon, X } from "lucide-react";
+import { PUBLIC_BASE } from "../../../api/base";
 import { http } from "../../../api/http"; // ✅ axios con interceptor Bearer
 
 type Severity = "critical" | "high" | "medium" | "low";
@@ -49,12 +50,7 @@ function nombreArma(tipo?: string | null) {
   return NOMBRES_ARMA[tipo] ?? tipo.replace(/_/g, " ");
 }
 
-const API_BASE =
-  (process as any).env?.REACT_APP_API_BASE ||
-  (import.meta as any).env?.VITE_API_URL ||
-  "http://localhost:8000/api/v1";
-
-const PUBLIC_BASE = String(API_BASE).replace(/\/api\/v1\/?$/, "");
+// PUBLIC_BASE se resuelve en un unico sitio: src/api/base.ts
 
 function toAbsoluteEvidenceUrl(url: string): string {
   if (!url) return "";

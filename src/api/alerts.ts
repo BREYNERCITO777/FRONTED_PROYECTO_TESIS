@@ -1,6 +1,4 @@
-const API_BASE =
-  process.env.REACT_APP_API_BASE ||
-  "https://backend-proyecto-tesis-1nv4.onrender.com/api/v1";
+import { API_BASE } from "./base";
 
 function getToken(): string | null {
   return (

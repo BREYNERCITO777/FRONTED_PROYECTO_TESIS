@@ -17,6 +17,7 @@ import {
   ImageOff,
 } from "lucide-react";
 
+import { PUBLIC_BASE } from "../../../api/base";
 import { listIncidents, deleteIncident } from "../../../api/incidents";
 import { useAuth } from "../../../context/auth-context";
 import { toast } from "sonner";
@@ -35,11 +36,7 @@ interface Incident {
   severity: "critical" | "high" | "medium" | "low";
 }
 
-// Base para assets (si luego sirves imágenes desde /static)
-const PUBLIC_BASE = (process.env.REACT_APP_API_BASE || "http://localhost:8000/api/v1").replace(
-  /\/api\/v1$/,
-  ""
-);
+// Base para assets: las imágenes de evidencia se sirven desde /static
 
 // Normaliza lo que venga del backend a tu UI
 function normalizeIncident(raw: any): Incident {

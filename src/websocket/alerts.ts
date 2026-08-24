@@ -1,3 +1,5 @@
+import { API_BASE } from "../api/base";
+
 const RUTA_WS = "/ws/alerts";
 const PREFIJO_API = "/api/v1";
 
@@ -21,11 +23,7 @@ export function resolverUrlWebSocket(): string {
 
   // Sin variable propia, se deriva de la URL de la API cambiando el esquema
   // (http -> ws, https -> wss), para no repetir el host en dos sitios.
-  const api = (process.env.REACT_APP_API_BASE || "http://localhost:8000/api/v1")
-    .trim()
-    .replace(/\/+$/, "");
-
-  return api.replace(/^http/, "ws") + RUTA_WS;
+  return API_BASE.replace(/^http/, "ws") + RUTA_WS;
 }
 
 export function connectAlertWebSocket(

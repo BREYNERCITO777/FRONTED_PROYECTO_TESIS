@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { API_BASE } from "../../../api/base";
 import {
   listCameras,
   createCamera,
@@ -60,8 +61,6 @@ interface Camera {
   infer_every_n_frames: number;
   status: "RUNNING" | "STOPPED";
 }
-
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000/api/v1";
 
 function normalizeCamera(raw: any): Camera {
   const id = String(raw._id ?? raw.id ?? "");
