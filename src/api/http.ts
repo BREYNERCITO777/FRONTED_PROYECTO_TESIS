@@ -1,7 +1,10 @@
+/**
+ * Cliente HTTP (axios) de la API. Agrega a cada petición el token JWT guardado
+ * en localStorage; los 401 los resuelve AuthProvider, no este interceptor.
+ */
 import axios from "axios";
 
-const API_BASE =
-  process.env.REACT_APP_API_BASE || "http://localhost:8000/api/v1";
+import { API_BASE } from "./base";
 
 export const http = axios.create({
   baseURL: API_BASE,

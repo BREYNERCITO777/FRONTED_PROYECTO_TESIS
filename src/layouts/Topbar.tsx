@@ -1,3 +1,7 @@
+/**
+ * Barra superior del panel: campana con las alertas no leídas, búsqueda y
+ * menú del usuario con cierre de sesión.
+ */
 import { Search, Bell, User, ChevronDown, AlertTriangle, LogOut } from "lucide-react";
 import { Input } from "../shared/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../shared/ui/avatar";

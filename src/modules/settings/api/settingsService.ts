@@ -1,7 +1,9 @@
-// frontend/src/modules/settings/api/settingsService.ts
-
-const API_BASE =
-  process.env.REACT_APP_API_BASE || "http://localhost:8000/api/v1";
+/**
+ * Servicio de configuración del sistema (/settings): umbral de confianza,
+ * FPS máximo, cada cuántos fotogramas inferir y guardado de evidencia. Los
+ * cambios se aplican en vivo, sin reiniciar el backend.
+ */
+import { API_BASE } from "../../../api/base";
 
 export type SystemSettings = {
   confidence_threshold: number;

@@ -1,4 +1,7 @@
-// frontend/src/api/incidents.ts
+/**
+ * Servicio de incidentes (/incidents): listar (operador y admin) y borrar
+ * (solo admin). Un incidente es una detección confirmada con su evidencia.
+ */
 import { http } from "./http";
 
 export type IncidentOut = {

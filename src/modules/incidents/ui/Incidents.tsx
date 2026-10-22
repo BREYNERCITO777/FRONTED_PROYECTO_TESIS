@@ -1,3 +1,7 @@
+/**
+ * Módulo Incidentes: tabla de detecciones registradas con filtros, detalle
+ * con la imagen de evidencia, descarga y borrado (solo admin).
+ */
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Eye,
@@ -14,8 +18,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  ImageOff,
 } from "lucide-react";
 
+import { PUBLIC_BASE } from "../../../api/base";
 import { listIncidents, deleteIncident } from "../../../api/incidents";
 import { useAuth } from "../../../context/auth-context";
 import { toast } from "sonner";
@@ -34,11 +40,7 @@ interface Incident {
   severity: "critical" | "high" | "medium" | "low";
 }
 
-// Base para assets (si luego sirves imágenes desde /static)
-const PUBLIC_BASE = (process.env.REACT_APP_API_BASE || "http://localhost:8000/api/v1").replace(
-  /\/api\/v1$/,
-  ""
-);
+// Base para assets: las imágenes de evidencia se sirven desde /static
 
 // Normaliza lo que venga del backend a tu UI
 function normalizeIncident(raw: any): Incident {
@@ -55,15 +57,29 @@ function normalizeIncident(raw: any): Incident {
 
   const created = raw.created_at ?? raw.timestamp ?? raw.createdAt ?? null;
   const dt = created ? new Date(created) : new Date();
+  const valida = Number.isFinite(dt.getTime());
 
-  const date = Number.isFinite(dt.getTime()) ? dt.toLocaleDateString() : "";
-  const time = Number.isFinite(dt.getTime()) ? dt.toLocaleTimeString() : "";
-  const timestamp = created ? String(created) : `${date} ${time}`;
+  const date = valida
+    ? dt.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" })
+    : "";
+  const time = valida
+    ? dt.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "";
 
-  // Evidencia / imagen
+  // Antes se guardaba la marca ISO en crudo y se pintaba tal cual en la ficha
+  // del incidente (2026-08-18T03:10:25.848668+00:00). Ahora se compone una
+  // fecha legible y en la zona horaria local, coherente con la del listado.
+  const timestamp = valida ? `${date}, ${time}` : String(created ?? "—");
+
+  // Evidencia / imagen.
+  // Las detecciones del agente NO traen URL: la captura viaja en base64 dentro
+  // del propio incidente, y al no contemplarlo la imagen salia rota.
   const img = raw.image_url ?? raw.snapshot_url ?? raw.evidence_url ?? "";
-  const image_url =
-    typeof img === "string" && img.startsWith("/") ? `${PUBLIC_BASE}${img}` : String(img || "");
+  const image_url = raw.image_base64
+    ? `data:image/jpeg;base64,${raw.image_base64}`
+    : typeof img === "string" && img.startsWith("/")
+    ? `${PUBLIC_BASE}${img}`
+    : String(img || "");
 
   // Severidad
   const sev =
@@ -90,6 +106,38 @@ function normalizeIncident(raw: any): Incident {
   };
 }
 
+/**
+ * El backend nombra las clases como estan en el modelo: arma_fuego. Eso es el
+ * nombre de un campo, no algo que se le pone delante a un operador.
+ */
+function nombreArma(tipo: string): string {
+  const conocidos: Record<string, string> = {
+    arma_fuego: "Arma de fuego",
+    arma_blanca: "Arma blanca",
+  };
+  const clave = tipo.trim().toLowerCase();
+  if (conocidos[clave]) return conocidos[clave];
+
+  // Cualquier clase que se añada al modelo mas adelante se muestra legible
+  // aunque no este en la lista.
+  const limpio = clave.replace(/[_-]+/g, " ").trim();
+  return limpio ? limpio.charAt(0).toUpperCase() + limpio.slice(1) : "Detección";
+}
+
+/**
+ * Descarga la captura del incidente con un nombre de archivo con sentido:
+ * evidencia_arma_fuego_6a83cd21.jpg en vez de "descarga.jpg".
+ */
+function descargarEvidencia(inc: { id: string; weapon_type: string; image_url: string }) {
+  if (!inc.image_url) return;
+  const a = document.createElement("a");
+  a.href = inc.image_url;
+  a.download = `evidencia_${inc.weapon_type}_${inc.id.slice(-8)}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export const Incidents = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -101,7 +149,20 @@ export const Incidents = () => {
   const [filterCamera, setFilterCamera] = useState("all");
   const [filterSeverity, setFilterSeverity] = useState("all");
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  // La captura puede existir en el registro y aun asi no poder mostrarse: los
+  // incidentes antiguos apuntan a un archivo que el servidor ya no tiene.
+  const [evidenciaRota, setEvidenciaRota] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Solo se muestra la captura si el incidente la tiene Y el navegador ha
+  // conseguido cargarla.
+  const hayEvidencia = Boolean(selectedIncident?.image_url) && !evidenciaRota;
+
+  /** Abre la ficha partiendo siempre de cero, sin arrastrar el fallo anterior. */
+  const abrirIncidente = (incidente: Incident) => {
+    setEvidenciaRota(false);
+    setSelectedIncident(incidente);
+  };
 
   // ✅ PAGINACIÓN (5 en 5)
   const pageSize = 5;
@@ -138,9 +199,15 @@ export const Incidents = () => {
 
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
+      // Se busca tanto por el nombre interno (arma_fuego) como por el que ve
+      // el operador (Arma de fuego): escribir lo que esta leyendo en pantalla
+      // no puede devolver cero resultados.
+      const buscado = searchTerm.toLowerCase();
       const matchesSearch =
-        inc.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inc.weapon_type.toLowerCase().includes(searchTerm.toLowerCase());
+        inc.id.toLowerCase().includes(buscado) ||
+        inc.weapon_type.toLowerCase().includes(buscado) ||
+        nombreArma(inc.weapon_type).toLowerCase().includes(buscado) ||
+        inc.camera_name.toLowerCase().includes(buscado);
 
       const matchesCamera = filterCamera === "all" || inc.camera_id === filterCamera;
       const matchesSeverity = filterSeverity === "all" || inc.severity === filterSeverity;
@@ -341,12 +408,25 @@ export const Incidents = () => {
             </thead>
 
             <tbody className="divide-y divide-border">
-              {pageData.map((incident) => (
+              {pageData.map((incident, i) => (
                 <tr key={incident.id} className="hover:bg-muted/30 transition-colors group">
                   <td className="px-6 py-4">
-                    <span className="font-mono font-bold text-foreground text-sm">{incident.id}</span>
-                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                      <Calendar size={10} /> {incident.date} · {incident.time}
+                    {/* Antes se mostraba el ObjectId completo de Mongo, 24
+                        caracteres ilegibles. Ahora manda la fecha, y el
+                        identificador queda reducido a un codigo corto que
+                        basta para referirse al incidente. El completo esta en
+                        la ficha de detalle. */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {String((page - 1) * pageSize + i + 1).padStart(3, "0")}
+                      </span>
+                      <span className="text-sm font-bold text-foreground">
+                        {incident.date}
+                      </span>
+                    </div>
+                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Calendar size={10} /> {incident.time}
+                      <span className="ml-1 font-mono">#{incident.id.slice(-6)}</span>
                     </p>
                   </td>
 
@@ -357,7 +437,9 @@ export const Incidents = () => {
                           incident.severity === "critical" ? "bg-destructive animate-pulse" : "bg-primary"
                         }`}
                       />
-                      <span className="text-sm font-bold text-foreground">{incident.weapon_type}</span>
+                      <span className="text-sm font-bold text-foreground">
+                        {nombreArma(incident.weapon_type)}
+                      </span>
                     </div>
                   </td>
 
@@ -378,8 +460,10 @@ export const Incidents = () => {
                   </td>
 
                   <td className="px-6 py-4">
-                    <span className="text-xs font-bold text-foreground block">{incident.camera_name}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase">{incident.camera_id}</span>
+                    {/* Se muestra solo el nombre. El identificador de Mongo
+                        debajo era ruido de 24 caracteres que no dice nada al
+                        operador; sigue disponible en la ficha del incidente. */}
+                    <span className="text-xs font-bold text-foreground">{incident.camera_name}</span>
                   </td>
 
                   <td className="px-6 py-4">
@@ -394,7 +478,7 @@ export const Incidents = () => {
 
                   <td className="px-6 py-4 text-right space-x-1">
                     <button
-                      onClick={() => setSelectedIncident(incident)}
+                      onClick={() => abrirIncidente(incident)}
                       className="p-2 text-muted-foreground hover:text-primary hover:bg-accent rounded-md transition-all inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
                     >
                       <Eye size={16} /> <span className="hidden xl:inline">Detalles</span>
@@ -471,8 +555,10 @@ export const Incidents = () => {
 
       {/* 5. Modal Detalle */}
       {selectedIncident && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden relative border border-border">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 fondo-modal animate-in fade-in duration-200">
+          {/* Si la ficha no cabe a lo alto se desplaza por dentro, en vez de
+              dejar los botones fuera de la pantalla. */}
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative border border-border">
             <button
               onClick={() => setSelectedIncident(null)}
               className="absolute top-4 right-4 p-2 bg-muted text-muted-foreground hover:text-foreground rounded-full z-10"
@@ -485,43 +571,106 @@ export const Incidents = () => {
                 <div className="p-2 bg-destructive/10 text-destructive rounded-lg">
                   <AlertTriangle size={24} />
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Incidente {selectedIncident.id}</h2>
-                  <p className="text-sm text-muted-foreground">{selectedIncident.timestamp}</p>
+                <div className="min-w-0">
+                  {/* Manda la fecha, que es lo que el operador necesita leer.
+                      El identificador completo pasa a segunda linea, en
+                      monoespaciada, porque solo sirve para trazabilidad. */}
+                  <h2 className="text-xl font-bold text-foreground">{selectedIncident.timestamp}</h2>
+                  <p className="font-mono text-xs text-muted-foreground break-all">
+                    ID {selectedIncident.id}
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* En pantallas estrechas se apilan en vez de aplastarse. */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="p-4 bg-muted/50 rounded-lg border border-border">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 tracking-widest">
                     Detección
                   </p>
-                  <p className="font-bold text-foreground">{selectedIncident.weapon_type}</p>
+                  <p className="font-bold text-foreground">
+                    {nombreArma(selectedIncident.weapon_type)}
+                  </p>
                 </div>
+
+                {/* La confianza no se mostraba en la ficha, y es justo el dato
+                    que decide si el operador se fia de la deteccion. */}
+                <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 tracking-widest">
+                    Confianza
+                  </p>
+                  <p className="font-bold text-foreground tabular-nums">
+                    {(selectedIncident.confidence * 100).toFixed(1)}%
+                  </p>
+                </div>
+
                 <div className="p-4 bg-muted/50 rounded-lg border border-border">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 tracking-widest">Cámara</p>
-                  <p className="font-bold text-foreground">{selectedIncident.camera_name}</p>
+                  <p className="font-bold text-foreground break-words">
+                    {selectedIncident.camera_name}
+                  </p>
                 </div>
               </div>
 
-              <div className="bg-black rounded-lg overflow-hidden shadow-inner border border-border relative">
-                <div className="w-full max-h-[60vh] flex items-center justify-center">
-                  <img
-                    src={selectedIncident.image_url}
-                    alt="Captura de evidencia"
-                    className="w-full h-auto max-h-[60vh] object-contain"
-                  />
-                </div>
+              {hayEvidencia ? (
+                <div className="relative overflow-hidden rounded-lg border border-border bg-slate-900 shadow-inner">
+                  {/* min-h evita que el hueco se derrumbe en una franja mientras
+                      la imagen carga. */}
+                  <div className="flex min-h-[14rem] max-h-[60vh] w-full items-center justify-center">
+                    <img
+                      src={selectedIncident.image_url}
+                      alt={`Captura de la detección de ${selectedIncident.weapon_type}`}
+                      className="h-auto max-h-[60vh] w-full object-contain"
+                      onError={() => setEvidenciaRota(true)}
+                    />
+                  </div>
 
-                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">
-                  {selectedIncident.camera_id}
+                  <div className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-[10px] text-white backdrop-blur-sm">
+                    {selectedIncident.camera_name}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Antes se pintaba un <img> vacio: salia el icono de imagen
+                   rota sobre una franja negra, sin explicar nada.
+                   Se distingue no tener captura de tenerla y no poder cargarla:
+                   son dos situaciones distintas y el operador necesita saber
+                   cual de las dos esta viendo. */
+                <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
+                  <ImageOff className="h-7 w-7 text-muted-foreground" />
+                  {evidenciaRota ? (
+                    <>
+                      <p className="text-sm font-medium text-foreground">
+                        La captura ya no está disponible
+                      </p>
+                      <p className="max-w-sm text-xs text-muted-foreground">
+                        El incidente sigue registrado, pero su imagen se guardó como archivo
+                        en el servidor y ya no se encuentra allí. Las detecciones nuevas
+                        guardan la captura junto al incidente y no vuelven a perderse.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-foreground">Sin captura de evidencia</p>
+                      <p className="text-xs text-muted-foreground">
+                        Esta detección se registró sin imagen adjunta.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4 border-t border-border">
-                <button className="flex-1 py-2.5 bg-primary text-primary-foreground font-bold rounded-md shadow-md hover:bg-primary/90 transition-all">
-                  Descargar Evidencia
-                </button>
+                {/* Antes este boton no tenia ninguna accion: se pulsaba y no
+                    pasaba nada. Ahora descarga la captura, y solo aparece si
+                    el incidente tiene una. */}
+                {hayEvidencia && (
+                  <button
+                    onClick={() => descargarEvidencia(selectedIncident)}
+                    className="flex-1 py-2.5 bg-primary text-primary-foreground font-bold rounded-md shadow-md hover:bg-primary/90 transition-all"
+                  >
+                    Descargar evidencia
+                  </button>
+                )}
 
                 {/* ✅ SOLO ADMIN: eliminar por ID */}
                 {isAdmin && (

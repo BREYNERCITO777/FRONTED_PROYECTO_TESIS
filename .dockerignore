@@ -1,0 +1,14 @@
+# Sin este archivo, "COPY . ." sobrescribe el node_modules que instala el
+# contenedor con el de la maquina anfitriona, que puede estar incompleto o
+# compilado para otro sistema operativo.
+node_modules
+
+# Artefactos generados: se regeneran dentro de la imagen.
+build
+
+# No aportan nada a la imagen y la engordan.
+.git
+.gitignore
+Dockerfile
+.dockerignore
+LICENSE

@@ -1,1 +1,13 @@
 node_modules
+
+# Artefacto generado por "npm run build": se reconstruye en cada despliegue,
+# no debe versionarse.
+build
+
+# Sobrescrituras locales. El .env si se versiona porque solo contiene URLs de
+# desarrollo, sin credenciales; estos son los que suelen llevar valores propios.
+.env.local
+.env.*.local
+
+.DS_Store
+npm-debug.log*

@@ -1,3 +1,7 @@
+/**
+ * Servicio de usuarios (/users, solo admin): alta, edición, cambio de rol y
+ * activación o desactivación de cuentas.
+ */
 import { http } from "./http";
 
 export type Role = "admin" | "operator";

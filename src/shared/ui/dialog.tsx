@@ -32,7 +32,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50",
+        "fixed inset-0 z-50 fondo-modal",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
@@ -45,8 +45,18 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  showClose = true,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  /**
+   * Dibuja el aspa de cerrar de la esquina.
+   *
+   * Se puede desactivar cuando el propio diálogo ya trae su botón de cerrar
+   * en una barra de acciones: de lo contrario aparecen dos aspas, una junto a
+   * la otra, como ocurría en la vista de cámara en vivo.
+   */
+  showClose?: boolean;
+}) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -63,16 +73,18 @@ function DialogContent({
       >
         {children}
 
-        <DialogPrimitive.Close
-          className={cn(
-            "absolute right-4 top-4 rounded-md opacity-70 transition-opacity hover:opacity-100",
-            "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-            "disabled:pointer-events-none",
-          )}
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Cerrar</span>
-        </DialogPrimitive.Close>
+        {showClose && (
+          <DialogPrimitive.Close
+            className={cn(
+              "absolute right-4 top-4 rounded-md opacity-70 transition-opacity hover:opacity-100",
+              "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+              "disabled:pointer-events-none",
+            )}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Cerrar</span>
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </DialogPortal>
   );
