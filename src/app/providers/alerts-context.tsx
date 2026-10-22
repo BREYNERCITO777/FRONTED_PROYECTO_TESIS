@@ -1,3 +1,8 @@
+/**
+ * Estado global de las alertas. Carga el historial al iniciar, escucha el
+ * WebSocket /ws/alerts para las nuevas, lleva la cuenta de no leídas y muestra
+ * la ventana de alerta entrante. Los componentes lo leen con useAlerts().
+ */
 import React, {
   createContext,
   useCallback,

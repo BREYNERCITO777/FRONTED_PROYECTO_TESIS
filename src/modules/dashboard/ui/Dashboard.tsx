@@ -1,3 +1,7 @@
+/**
+ * Módulo Panel: resumen del sistema con cámaras activas, incidentes y
+ * alertas recientes.
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/card";
 import { Badge } from "../../../shared/ui/badge";

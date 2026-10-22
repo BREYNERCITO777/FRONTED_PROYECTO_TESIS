@@ -1,3 +1,7 @@
+/**
+ * Servicio de cámaras (/cameras): alta, edición, baja y arranque o parada
+ * del procesamiento de cada cámara. Crear, editar y borrar es solo para admin.
+ */
 import { http } from "./http";
 
 export type CameraIn = {

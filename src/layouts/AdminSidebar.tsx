@@ -1,3 +1,7 @@
+/**
+ * Menú lateral. Muestra los módulos según el rol (Usuarios y Configuración
+ * solo para admin) y el número de alertas sin leer.
+ */
 import {
   LayoutDashboard,
   Camera,

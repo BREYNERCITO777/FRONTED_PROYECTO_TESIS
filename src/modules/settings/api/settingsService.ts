@@ -1,5 +1,8 @@
-// frontend/src/modules/settings/api/settingsService.ts
-
+/**
+ * Servicio de configuración del sistema (/settings): umbral de confianza,
+ * FPS máximo, cada cuántos fotogramas inferir y guardado de evidencia. Los
+ * cambios se aplican en vivo, sin reiniciar el backend.
+ */
 import { API_BASE } from "../../../api/base";
 
 export type SystemSettings = {

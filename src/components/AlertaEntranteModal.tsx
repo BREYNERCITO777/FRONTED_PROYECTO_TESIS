@@ -1,3 +1,8 @@
+/**
+ * Ventana que aparece cuando llega una alerta nueva por WebSocket: tipo de
+ * arma, confianza, cámara, hora e imagen de evidencia. El operador la cierra o
+ * la marca como leída; la decisión de actuar es siempre suya.
+ */
 import React, { useEffect } from "react";
 import { AlertTriangle, Clock, Gauge, ImageOff, X } from "lucide-react";
 

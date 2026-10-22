@@ -1,3 +1,7 @@
+/**
+ * Módulo Cámaras: lista de cámaras con su estado, alta y edición de la URL
+ * RTSP y sus parámetros, y arranque o parada del procesamiento.
+ */
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/card";
 import { Button } from "../../../shared/ui/button";

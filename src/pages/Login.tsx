@@ -1,3 +1,7 @@
+/**
+ * Pantalla de inicio de sesión. Tras entrar, vuelve a la ruta que el usuario
+ * intentaba abrir.
+ */
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 

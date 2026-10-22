@@ -1,3 +1,7 @@
+/**
+ * Módulo Usuarios (solo admin): alta de usuarios, cambio de rol entre
+ * operador y admin, activación y borrado.
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 

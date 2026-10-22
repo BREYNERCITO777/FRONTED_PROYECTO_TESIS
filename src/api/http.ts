@@ -1,3 +1,7 @@
+/**
+ * Cliente HTTP (axios) de la API. Agrega a cada petición el token JWT guardado
+ * en localStorage; los 401 los resuelve AuthProvider, no este interceptor.
+ */
 import axios from "axios";
 
 import { API_BASE } from "./base";

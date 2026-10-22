@@ -1,3 +1,8 @@
+/**
+ * Servicio de alertas: listar, marcar como leídas y borrar. También unifica
+ * las distintas formas en que el backend entrega una alerta (evidencia como URL
+ * o en base64, nombres de campo antiguos) en el tipo AlertUI que usa el panel.
+ */
 import { API_BASE } from "./base";
 
 function getToken(): string | null {

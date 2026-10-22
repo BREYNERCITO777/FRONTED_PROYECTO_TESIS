@@ -1,3 +1,7 @@
+/**
+ * Módulo Incidentes: tabla de detecciones registradas con filtros, detalle
+ * con la imagen de evidencia, descarga y borrado (solo admin).
+ */
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Eye,

@@ -1,3 +1,7 @@
+/**
+ * Módulo Configuración (solo admin): umbral de confianza y demás parámetros
+ * de detección del sistema.
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../shared/ui/card";
 import { Label } from "../../../shared/ui/label";

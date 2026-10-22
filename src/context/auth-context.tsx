@@ -1,3 +1,7 @@
+/**
+ * Sesión del usuario: inicio y cierre de sesión, verificación del token con
+ * /auth/me al cargar la página, y rol y módulos permitidos. Se lee con useAuth().
+ */
 import React, {
   createContext,
   useCallback,

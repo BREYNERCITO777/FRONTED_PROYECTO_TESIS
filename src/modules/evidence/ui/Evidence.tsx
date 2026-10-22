@@ -1,3 +1,7 @@
+/**
+ * Módulo Evidencias: galería de las imágenes de evidencia de los incidentes,
+ * con vista ampliada y descarga.
+ */
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent } from "../../../shared/ui/card";
 import { Button } from "../../../shared/ui/button";

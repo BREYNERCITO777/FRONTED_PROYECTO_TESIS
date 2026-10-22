@@ -1,3 +1,7 @@
+/**
+ * Módulo Alertas: historial de alertas con filtros por estado, marcado como
+ * leída y borrado. Los datos vienen de AlertsProvider (useAlerts).
+ */
 import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "../../../shared/ui/card";
 import { Badge } from "../../../shared/ui/badge";
