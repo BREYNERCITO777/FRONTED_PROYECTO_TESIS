@@ -21,6 +21,13 @@ export function resolverUrlWebSocket(): string {
     return base + PREFIJO_API + RUTA_WS;
   }
 
+  // API en la misma dirección que el panel (REACT_APP_API_BASE=/api/v1, detrás
+  // de Nginx): el WebSocket va al mismo host, con ws o wss según la página.
+  if (API_BASE.startsWith("/")) {
+    const esquema = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${esquema}://${window.location.host}${API_BASE}${RUTA_WS}`;
+  }
+
   // Sin variable propia, se deriva de la URL de la API cambiando el esquema
   // (http -> ws, https -> wss), para no repetir el host en dos sitios.
   return API_BASE.replace(/^http/, "ws") + RUTA_WS;

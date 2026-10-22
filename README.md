@@ -76,9 +76,16 @@ src/
 
 ## Despliegue
 
-En Vercel: `vercel.json` redirige todas las rutas a `index.html`, así funcionan los
-enlaces directos a cada sección. El `Dockerfile` levanta el servidor de desarrollo para
-pruebas locales con Docker.
+**En los servidores de la municipalidad (producción):** `Dockerfile.produccion` compila
+el panel y lo sirve con Nginx (`nginx.conf`), que además reenvía `/api`, el WebSocket de
+alertas y `/static` al backend. El panel y la API quedan en la misma dirección, sin CORS
+ni puerto 8000 expuesto. Se levanta junto con el resto del sistema desde
+`despliegue/docker-compose.yml` del repositorio del backend; ver su `despliegue/README.md`.
+
+**Prototipo en la nube:** en Vercel, `vercel.json` redirige todas las rutas a
+`index.html`, así funcionan los enlaces directos a cada sección.
+
+El `Dockerfile` (sin sufijo) levanta el servidor de desarrollo para pruebas locales.
 
 ## Licencia
 
